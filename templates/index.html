@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Meeting Transcription Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="header__title">AI Meeting Transcription Assistant</h1>
+            <div class="header__status">
+                <div class="service-status" id="serviceStatus">
+                    <span class="service-indicator" id="transcriptionService">Web Speech</span>
+                    <span class="service-indicator" id="aiService">Simulation</span>
+                </div>
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="statusText">Ready</span>
+                </div>
+                <div class="session-timer" id="sessionTimer">00:00:00</div>
+                <button class="btn btn--outline btn--sm" id="settingsBtn">⚙️ Settings</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Control Panel -->
+            <section class="control-panel">
+                <div class="control-group">
+                    <button class="btn btn--primary btn--lg" id="recordButton">
+                        <span class="btn-icon" id="recordIcon">🎤</span>
+                        <span id="recordText">Start Recording</span>
+                    </button>
+                    <button class="btn btn--secondary" id="pauseButton" disabled>
+                        <span class="btn-icon">⏸️</span>
+                        Pause
+                    </button>
+                    <button class="btn btn--outline" id="stopButton" disabled>
+                        <span class="btn-icon">⏹️</span>
+                        Stop
+                    </button>
+                </div>
+                <div class="session-info">
+                    <div class="info-item">
+                        <span class="info-label">Speakers:</span>
+                        <span class="info-value" id="speakerCount">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Language:</span>
+                        <select class="form-control" id="languageSelect">
+                            <option value="en-US">English (US)</option>
+                            <option value="en-GB">English (UK)</option>
+                            <option value="es-ES">Spanish</option>
+                            <option value="fr-FR">French</option>
+                            <option value="de-DE">German</option>
+                            <option value="it-IT">Italian</option>
+                            <option value="pt-BR">Portuguese</option>
+                            <option value="ja-JP">Japanese</option>
+                            <option value="ko-KR">Korean</option>
+                            <option value="zh-CN">Chinese (Simplified)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="audio-visualizer" id="audioVisualizer">
+                    <div class="audio-bar"></div>
+                    <div class="audio-bar"></div>
+                    <div class="audio-bar"></div>
+                    <div class="audio-bar"></div>
+                    <div class="audio-bar"></div>
+                </div>
+            </section>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Transcript Display -->
+                <section class="transcript-section">
+                    <div class="transcript-header">
+                        <h2>Live Transcript</h2>
+                        <div class="transcript-controls">
+                            <button class="btn btn--sm btn--outline" id="clearTranscript">Clear</button>
+                            <button class="btn btn--sm btn--outline" id="scrollToBottom">Scroll to Bottom</button>
+                        </div>
+                    </div>
+                    <div class="transcript-container" id="transcriptContainer">
+                        <div class="transcript-placeholder" id="transcriptPlaceholder">
+                            <div class="placeholder-icon">🎙️</div>
+                            <p>Click "Start Recording" to begin transcription</p>
+                            <p class="placeholder-tip">Tip: Speak clearly and allow brief pauses between speakers</p>
+                        </div>
+                        <div class="transcript-content" id="transcriptContent"></div>
+                    </div>
+                </section>
+
+                <!-- AI Features Sidebar -->
+                <aside class="sidebar">
+                    <!-- AI Summary -->
+                    <div class="sidebar-section">
+                        <h3>AI Summary</h3>
+                        <button class="btn btn--primary btn--full-width" id="generateSummary">
+                            Generate Summary
+                        </button>
+                        <div class="summary-content" id="summaryContent">
+                            <p class="text-muted">No summary available yet. Generate a summary after recording.</p>
+                        </div>
+                    </div>
+
+                    <!-- Translation -->
+                    <div class="sidebar-section">
+                        <h3>Translation</h3>
+                        <div class="form-group">
+                            <select class="form-control" id="translationTarget">
+                                <option value="">Select target language</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="it">Italian</option>
+                                <option value="pt">Portuguese</option>
+                                <option value="ja">Japanese</option>
+                                <option value="ko">Korean</option>
+                                <option value="zh">Chinese</option>
+                            </select>
+                        </div>
+                        <button class="btn btn--secondary btn--full-width" id="translateText">
+                            Translate Transcript
+                        </button>
+                        <div class="translation-content" id="translationContent"></div>
+                    </div>
+
+                    <!-- Keywords -->
+                    <div class="sidebar-section">
+                        <h3>Keywords</h3>
+                        <div class="keyword-controls">
+                            <button class="btn btn--outline btn--sm" id="extractKeywords">Extract Keywords</button>
+                            <button class="btn btn--outline btn--sm" id="highlightKeywords">Highlight</button>
+                        </div>
+                        <div class="keywords-list" id="keywordsList">
+                            <p class="text-muted">Keywords will appear here after extraction</p>
+                        </div>
+                    </div>
+
+                    <!-- Custom Dictionary -->
+                    <div class="sidebar-section">
+                        <h3>Custom Dictionary</h3>
+                        <div class="form-group">
+                            <input type="text" class="form-control" id="newWord" placeholder="Add custom word">
+                            <button class="btn btn--secondary btn--sm" id="addWord">Add</button>
+                        </div>
+                        <div class="dictionary-list" id="dictionaryList"></div>
+                    </div>
+
+                    <!-- Export -->
+                    <div class="sidebar-section">
+                        <h3>Export</h3>
+                        <div class="form-group">
+                            <select class="form-control" id="exportFormat">
+                                <option value="txt">Plain Text (.txt)</option>
+                                <option value="json">JSON Format (.json)</option>
+                                <option value="pdf">PDF Document (.pdf)</option>
+                                <option value="docx">Word Document (.docx)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn--primary btn--full-width" id="exportTranscript">
+                            Export Transcript
+                        </button>
+                    </div>
+                </aside>
+            </div>
+
+            <!-- Meeting History -->
+            <section class="history-section" id="historySection">
+                <div class="history-header">
+                    <h2>Meeting History</h2>
+                    <button class="btn btn--outline btn--sm" id="toggleHistory">Show History</button>
+                </div>
+                <div class="history-content" id="historyContent" style="display: none;">
+                    <div class="history-search">
+                        <input type="text" class="form-control" id="historySearch" placeholder="Search meetings...">
+                    </div>
+                    <div class="history-list" id="historyList"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modal for Meeting Details -->
+        <div class="modal hidden" id="meetingModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Meeting Details</h3>
+                    <button class="modal-close" id="modalClose">&times;</button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Meeting details will be populated here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn--outline" id="modalCloseBtn">Close</button>
+                    <button class="btn btn--primary" id="loadMeeting">Load Meeting</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div class="modal hidden" id="settingsModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>API Configuration</h3>
+                    <button class="modal-close" id="settingsModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <h4>AssemblyAI Configuration</h4>
+                        <p class="text-muted">Enter your AssemblyAI API key for real-time transcription</p>
+                        <div class="form-group">
+                            <label for="assemblyaiApiKey">AssemblyAI API Key:</label>
+                            <input type="password" id="assemblyaiApiKey" class="form-control" placeholder="Enter your AssemblyAI API key">
+                        </div>
+                        <div class="service-status-indicator">
+                            <span id="assemblyaiStatus" class="status-badge">Not Configured</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>Google Gemini AI Configuration</h4>
+                        <p class="text-muted">Enter your Google Gemini API key for AI features (summary, translation, keywords)</p>
+                        <div class="form-group">
+                            <label for="geminiApiKey">Gemini API Key:</label>
+                            <input type="password" id="geminiApiKey" class="form-control" placeholder="Enter your Gemini API key">
+                        </div>
+                        <div class="service-status-indicator">
+                            <span id="geminiStatus" class="status-badge">Not Configured</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>Fallback Options</h4>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="enableWebSpeechFallback" checked>
+                                Use Web Speech API as fallback for transcription
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="enableSimulationFallback" checked>
+                                Use simulation as fallback for AI features
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn--outline" id="settingsModalCancel">Cancel</button>
+                    <button class="btn btn--primary" id="saveSettings">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toastContainer"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+[Unit]
+Description=AI Meeting Transcription Assistant Flask Application
+After=network.target
+
+[Service]
+Type=exec
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/meeting-transcription-ai
+Environment=PATH=/var/www/meeting-transcription-ai/venv/bin
+Environment=FLASK_ENV=production
+Environment=SECRET_KEY=your-secret-key-here
+Environment=JWT_EXPIRATION_HOURS=24
+ExecStart=/var/www/meeting-transcription-ai/venv/bin/gunicorn --bind 127.0.0.1:5000 --workers 4 --timeout 60 --keep-alive 2 --max-requests 1000 --max-requests-jitter 100 app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=3
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/meeting-transcription-ai/logs
+
+[Install]
+WantedBy=multi-user.target
