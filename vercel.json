@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",
@@ -9,12 +15,5 @@
   "env": {
     "FLASK_ENV": "production",
     "CORS_ORIGINS": "https://ai-meetingnotes.vercel.app"
-  },
-  "functions": {
-    "app.py": {
-      "runtime": "python3.9",
-      "maxDuration": 30,
-      "includeFiles": "**"
-    }
   }
 }
