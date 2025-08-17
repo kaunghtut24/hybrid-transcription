@@ -7,6 +7,11 @@ Optimized for cloud deployment platforms
 
 import os
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
+
 from app import create_app
 
 # Configure logging

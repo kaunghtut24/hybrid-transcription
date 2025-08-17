@@ -790,7 +790,38 @@
                     // Load API keys from backend
                     loadApiKeys: async function() {
                         try {
-                            console.log('🔑 Loading API keys with token:', this.sessionToken ? 'Present' : 'Missing');
+                            console.log('🔑 Loading API keys from environment and user config...');
+                            
+                            // First, try to load from environment (no session required)
+                            let envConfig = null;
+                            try {
+                                const envResponse = await fetch('/api/config/initial');
+                                if (envResponse.ok) {
+                                    envConfig = await envResponse.json();
+                                    console.log('✅ Environment config loaded:', {
+                                        assemblyai: envConfig.assemblyai_available,
+                                        gemini: envConfig.gemini_available
+                                    });
+                                    
+                                    // Set API keys from environment if available
+                                    if (envConfig.assemblyai_available) {
+                                        this.apiKeys.assemblyai = true;
+                                        this.apiKeys.assemblyai_key = envConfig.assemblyai_key;
+                                        console.log('✅ AssemblyAI key loaded from environment');
+                                    }
+                                    
+                                    if (envConfig.gemini_available) {
+                                        this.apiKeys.gemini = true;
+                                        this.apiKeys.gemini_key = envConfig.gemini_key;
+                                        console.log('✅ Gemini key loaded from environment');
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn('⚠️ Could not load environment config:', error);
+                            }
+                            
+                            // Then, try to load user configuration (requires session)
+                            console.log('🔑 Loading user config with token:', this.sessionToken ? 'Present' : 'Missing');
                             
                             const response = await fetch('/api/config', {
                                 method: 'GET',
@@ -802,32 +833,40 @@
                             
                             if (response.ok) {
                                 const config = await response.json();
-                                this.apiKeys.assemblyai = config.assemblyai_configured;
-                                this.apiKeys.gemini = config.gemini_configured;
                                 
-                                // If AssemblyAI is configured, get the actual API key for streaming
+                                // Override with user-specific keys if they exist
                                 if (config.assemblyai_configured) {
-                                    try {
-                                        const keyResponse = await fetch('/api/assemblyai/key', {
-                                            headers: {
-                                                'Authorization': `Bearer ${this.sessionToken}`,
-                                                'Content-Type': 'application/json'
+                                    this.apiKeys.assemblyai = true;
+                                    
+                                    // Get the actual API key for streaming if not already loaded from env
+                                    if (!this.apiKeys.assemblyai_key) {
+                                        try {
+                                            const keyResponse = await fetch('/api/assemblyai/key', {
+                                                headers: {
+                                                    'Authorization': `Bearer ${this.sessionToken}`,
+                                                    'Content-Type': 'application/json'
+                                                }
+                                            });
+                                            
+                                            if (keyResponse.ok) {
+                                                const keyData = await keyResponse.json();
+                                                this.apiKeys.assemblyai_key = keyData.api_key;
+                                                console.log('✅ AssemblyAI key retrieved from user config');
                                             }
-                                        });
-                                        
-                                        if (keyResponse.ok) {
-                                            const keyData = await keyResponse.json();
-                                            this.apiKeys.assemblyai_key = keyData.api_key;
-                                            console.log('✅ AssemblyAI key retrieved for streaming');
+                                        } catch (error) {
+                                            console.warn('⚠️ Could not retrieve AssemblyAI key for streaming:', error);
                                         }
-                                    } catch (error) {
-                                        console.warn('⚠️ Could not retrieve AssemblyAI key for streaming:', error);
                                     }
                                 }
                                 
-                                console.log('✅ API keys loaded:', {
-                                    assemblyai: config.assemblyai_configured,
-                                    gemini: config.gemini_configured,
+                                if (config.gemini_configured && !this.apiKeys.gemini_key) {
+                                    this.apiKeys.gemini = true;
+                                    console.log('✅ Gemini configured in user config');
+                                }
+                                
+                                console.log('✅ Final API keys loaded:', {
+                                    assemblyai: this.apiKeys.assemblyai,
+                                    gemini: this.apiKeys.gemini,
                                     assemblyai_from_env: config.assemblyai_from_env,
                                     gemini_from_env: config.gemini_from_env
                                 });
