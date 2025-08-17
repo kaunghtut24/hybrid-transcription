@@ -14,13 +14,7 @@
     "app.py": {
       "runtime": "@vercel/python",
       "maxDuration": 30,
-      "includeFiles": [
-        "templates/**",
-        "static/**",
-        "app/**",
-        "services/**",
-        "requirements.txt"
-      ]
+      "includeFiles": "**"
     }
   }
 }
