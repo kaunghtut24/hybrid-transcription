@@ -2,70 +2,30 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/*.py",
-      "use": "@vercel/python"
+      "src": "app.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1",
-      "headers": {
-        "Cache-Control": "max-age=31536000"
-      }
-    },
-    {
       "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/static/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "max-age=31536000"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https: wss:; img-src 'self' data: https:; font-src 'self'; object-src 'none'; media-src 'self'; frame-ancestors 'none';"
-        }
-      ]
+      "dest": "app.py"
     }
   ],
   "env": {
-    "SECRET_KEY": "@secret_key",
-    "JWT_EXPIRATION_HOURS": "24"
+    "FLASK_ENV": "production",
+    "CORS_ORIGINS": "https://ai-meetingnotes.vercel.app"
   },
   "functions": {
-    "api/*.py": {
-      "maxDuration": 30
+    "app.py": {
+      "includeFiles": [
+        "templates/**",
+        "static/**",
+        "app/**"
+      ]
     }
   }
 }

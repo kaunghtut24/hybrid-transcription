@@ -208,9 +208,86 @@ yarn-error.log*
 # API keys and sensitive configuration
 .env.local
 .env.production
+.env.development
 config.py
 secrets.json
 session.json
+
+# Development and testing files
+debug_*.py
+test_*.py
+*_test.py
+test_*/
+optimize_*.py
+run_app.py
+
+# Documentation drafts and summaries
+*_SUMMARY.md
+*_FIXES.md
+*_STATUS.md
+*_IMPLEMENTATION.md
+CURRENT_*.md
+API_FIXES_SUMMARY.md
+ASSEMBLYAI_*.md
+CLEANUP_SUMMARY.md
+CORRECTED_SERVICE_ARCHITECTURE.md
+FILE_UPLOAD_FIXES.md
+FULL_FUNCTIONALITY_SUMMARY.md
+INTEGRATION_TESTING_SUMMARY.md
+LOADING_STATUS_AND_GEMINI_FIXES.md
+PERFORMANCE_IMPROVEMENTS.md
+REFACTORING_SUMMARY.md
+RUNTIME_FIXES_SUMMARY.md
+SLAM1_KEYTERMS_IMPLEMENTATION.md
+STARTUP_*.md
+SYNTAX_FIXES_SUMMARY.md
+TASK_8_IMPLEMENTATION_SUMMARY.md
+UI_UX_IMPROVEMENTS_SUMMARY.md
+UNIT_TESTS_IMPLEMENTATION_SUMMARY.md
+
+# Development tools and configs
+.kiro/
+nginx_optimized.conf
+requirements_optimized.txt
+
+# Static file backups and development versions
+static/*backup*
+static/*original*
+static/app-original-backup.js
+static/config.js
+static/dev-sample-data.js
+static/empty-state-manager.js
+static/help-system.js
+static/instant_hide.js
+static/loading_diagnostic.js
+static/page_debug.js
+static/startup_*.js
+
+# Template backups and test files
+templates/*backup*
+templates/*test*
+templates/*debug*
+templates/*minimal*
+templates/*working*
+templates/*simple*
+templates/*bare*
+templates/browser_test.html
+templates/debug_*.html
+templates/fixed_main.html
+templates/js_debug.html
+templates/minimal_diagnostic.html
+templates/simple_*.html
+templates/test.html
+templates/working_test.html
+
+# Legacy API structure (replaced by modular app/)
+api/
+functions/
+public/
+
+# Test files
+test_*.py
+tests/
 
 # Uploaded files
 uploads/

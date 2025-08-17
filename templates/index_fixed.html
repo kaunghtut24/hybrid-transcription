@@ -1,0 +1,3045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Meeting Transcription Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Improved UI/UX styles with better contrast and colors */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        
+        #loadingIndicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-family: inherit;
+        }
+        
+        .loading-content {
+            text-align: center;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .spinner {
+            border: 4px solid #e3f2fd;
+            border-top: 4px solid #2196f3;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            z-index: 10000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            font-weight: 500;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            margin: 0 0 15px 0;
+            font-size: 2.5em;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.1);
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .status-bar span {
+            font-weight: 500;
+            font-size: 1.1em;
+        }
+        
+        main {
+            padding: 30px;
+        }
+        
+        .control-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .recording-controls {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .service-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            margin: 10px 0;
+        }
+        
+        /* Improved transcript styles */
+        .transcript-container {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 2px solid #e9ecef;
+        }
+        
+        .transcript-entry {
+            margin: 12px 0;
+            padding: 15px;
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+        
+        .transcript-entry:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        
+        .transcript-entry .timestamp {
+            color: #667eea;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-right: 15px;
+            display: inline-block;
+        }
+        
+        .transcript-entry .text {
+            color: #2c3e50;
+            font-size: 1.05em;
+            line-height: 1.6;
+        }
+        
+        .interim-result {
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 12px 20px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            margin-top: 10px;
+            border-left: 3px solid #bdc3c7;
+        }
+        
+        /* Improved button styles */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(149, 165, 166, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(149, 165, 166, 0.4);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        
+        .btn-outline:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        /* Improved form controls */
+        select, input {
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #2c3e50;
+            transition: all 0.2s ease;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        /* Select element styling */
+        select {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        /* Model selector styling */
+        #assemblyaiModelSelect {
+            border-color: #f39c12;
+            background: linear-gradient(135deg, #fff 0%, #fef9e7 100%);
+        }
+        
+        #assemblyaiModelSelect:focus {
+            border-color: #f39c12;
+            box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.1);
+        }
+        
+        /* Action panels */
+        .action-panel {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        
+        .upload-panel {
+            text-align: center;
+            padding: 20px;
+            background: #e8f4fd;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        
+        /* Improved modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .modal-content h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .form-group {
+            margin: 20px 0;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #7f8c8d;
+            font-size: 0.85em;
+        }
+        
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        /* Result content styling */
+        .result-content {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .result-content h1, .result-content h2, .result-content h3 {
+            color: #667eea;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .result-content ul, .result-content ol {
+            margin: 10px 0;
+            padding-left: 25px;
+        }
+        
+        .result-content li {
+            margin: 5px 0;
+        }
+        
+        .result-content strong {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .control-panel {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .recording-controls, .service-controls {
+                justify-content: center;
+                gap: 8px;
+            }
+            
+            .service-controls select, .service-controls button {
+                min-width: 120px;
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+            
+            .action-panel {
+                flex-direction: column;
+            }
+            
+            header h1 {
+                font-size: 2em;
+            }
+            
+            .container {
+                margin: 10px;
+                border-radius: 12px;
+            }
+            
+            /* Better touch targets for mobile */
+            .btn {
+                min-height: 44px;
+                touch-action: manipulation;
+            }
+            
+            select {
+                min-height: 44px;
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+        }
+        
+        /* Extra small screens */
+        @media (max-width: 480px) {
+            .service-controls {
+                gap: 5px;
+                padding: 8px;
+            }
+            
+            .service-controls select, .service-controls button {
+                min-width: 100px;
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+            
+            .container {
+                margin: 5px;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h3>Loading AI Meeting Transcription Assistant...</h3>
+            <p id="loadingStatus">Initializing application...</p>
+        </div>
+    </div>
+
+    <!-- Main Application Content -->
+    <div class="container" style="display: none;" id="mainContent">
+        <header>
+            <h1>🎤 AI Meeting Transcription Assistant</h1>
+            <div class="status-bar">
+                <span id="status">Ready</span>
+                <span id="serviceStatus">Offline</span>
+                <span id="operationStatus" style="font-size: 0.9em; opacity: 0.8; display: none;"></span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <div class="recording-controls">
+                    <button id="startBtn" class="btn btn-primary">🎤 Start Recording</button>
+                    <button id="stopBtn" class="btn btn-secondary" disabled>⏹️ Stop Recording</button>
+                </div>
+                
+                <div class="service-controls">
+                    <select id="serviceSelect" style="margin-right: 10px;">
+                        <option value="auto">Auto (Best Available)</option>
+                        <option value="assemblyai-streaming">AssemblyAI Streaming (Real-time)</option>
+                        <option value="assemblyai-file">AssemblyAI File Upload (Pre-recorded)</option>
+                        <option value="webspeech">Web Speech API</option>
+                    </select>
+                    <select id="assemblyaiModelSelect" style="margin-right: 10px; display: none;">
+                        <option value="universal">Universal (Multi-language)</option>
+                        <option value="slam-1">Slam-1 (English Only - Highest Accuracy)</option>
+                    </select>
+                    <select id="languageSelect">
+                        <option value="en-US">English (US)</option>
+                        <option value="es-ES">Spanish</option>
+                        <option value="fr-FR">French</option>
+                        <option value="de-DE">German</option>
+                        <option value="it-IT">Italian</option>
+                        <option value="pt-BR">Portuguese (Brazil)</option>
+                        <option value="ja-JP">Japanese</option>
+                        <option value="ko-KR">Korean</option>
+                        <option value="zh-CN">Chinese (Simplified)</option>
+                    </select>
+                    <button id="configBtn" class="btn btn-outline">⚙️ Settings</button>
+                    <button id="helpBtn" class="btn btn-outline">❓ Help</button>
+                </div>
+            </div>
+
+            <!-- Transcript Display -->
+            <div class="transcript-container">
+                <div id="transcript" class="transcript"></div>
+                <div id="interim" class="interim-result"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-panel">
+                <button id="summarizeBtn" class="btn btn-outline">📝 Summarize</button>
+                <button id="translateBtn" class="btn btn-outline">🌐 Translate</button>
+                <button id="extractBtn" class="btn btn-outline">🔍 Extract Key Info</button>
+                <button id="exportBtn" class="btn btn-outline">💾 Export</button>
+                <button id="clearBtn" class="btn btn-outline">🗑️ Clear</button>
+            </div>
+
+            <!-- File Upload -->
+            <div class="upload-panel">
+                <input type="file" id="fileUpload" accept="audio/*,video/*,.wav,.mp3,.m4a,.flac,.ogg,.aac,.wma,.mp4,.mov,.avi" style="display: none;">
+                <button id="uploadBtn" class="btn btn-outline">📁 Upload Audio/Video</button>
+                
+                <!-- Keyterms Input for Slam-1 -->
+                <div id="keytermsPanel" style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 8px; display: none;">
+                    <label for="keytermsInput" style="display: block; font-weight: 600; margin-bottom: 8px; color: #856404;">
+                        🎯 Key Terms & Phrases (Slam-1 Enhancement)
+                    </label>
+                    <textarea 
+                        id="keytermsInput" 
+                        placeholder="Enter domain-specific terms, names, or phrases that may appear in your audio (one per line)&#10;Examples:&#10;John Smith&#10;cognitive behavioral therapy&#10;differential diagnosis&#10;Wellbutrin XL 150mg"
+                        style="width: 100%; height: 100px; padding: 10px; border: 2px solid #ffc107; border-radius: 6px; font-size: 14px; resize: vertical; box-sizing: border-box;"
+                    ></textarea>
+                    <div style="margin-top: 8px; display: flex; gap: 10px; align-items: center;">
+                        <button id="exampleKeytermsBtn" class="btn btn-outline" style="font-size: 0.8em; padding: 6px 12px;">
+                            📋 Load Examples
+                        </button>
+                        <button id="clearKeytermsBtn" class="btn btn-outline" style="font-size: 0.8em; padding: 6px 12px;">
+                            🗑️ Clear
+                        </button>
+                        <span id="keytermsCount" style="font-size: 0.8em; color: #856404;"></span>
+                    </div>
+                    <small style="color: #856404; font-size: 0.85em; display: block; margin-top: 5px;">
+                        💡 <strong>Tip:</strong> Include names, technical terms, medications, or specialized vocabulary that may appear in your audio. 
+                        Maximum 1000 terms, up to 6 words per phrase.
+                    </small>
+                </div>
+                
+                <div id="modelInfo" style="margin-top: 15px; padding: 10px; background: #e8f4fd; border-radius: 8px; font-size: 0.9em; display: none;">
+                    <strong>Model Information:</strong>
+                    <div id="modelDescription"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="configModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Configuration</h3>
+            <div class="form-group">
+                <label for="assemblyaiKey">AssemblyAI API Key:</label>
+                <input type="password" id="assemblyaiKey" placeholder="Enter your AssemblyAI API key">
+                <small>Get your key from: <a href="https://www.assemblyai.com/app/account" target="_blank">AssemblyAI Dashboard</a></small>
+                <small id="assemblyaiEnvStatus" style="color: #27ae60; display: none;">✅ Loaded from environment variables</small>
+            </div>
+            <div class="form-group">
+                <label for="geminiKey">Gemini API Key:</label>
+                <input type="password" id="geminiKey" placeholder="Enter your Gemini API key">
+                <small>Get your key from: <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a></small>
+                <small id="geminiEnvStatus" style="color: #27ae60; display: none;">✅ Loaded from environment variables</small>
+            </div>
+            <div id="configStatus" style="margin: 10px 0; padding: 10px; border-radius: 4px; display: none;"></div>
+            <div class="modal-actions">
+                <button id="testConfigBtn" class="btn btn-outline">🧪 Test Connection</button>
+                <button id="saveConfigBtn" class="btn btn-primary">💾 Save</button>
+                <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.IO Client Library from official CDN -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Fallback to cdnjs if official CDN fails -->
+    <script>
+        if (typeof io === 'undefined') {
+            console.warn('Official Socket.IO CDN failed, trying fallback...');
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"><\/script>');
+        }
+    </script>
+    
+    <!-- JavaScript Loading with Error Handling -->
+    <script>
+        console.log('🚀 Starting application initialization...');
+        
+        // Update loading status
+        function updateLoadingStatus(message) {
+            const statusEl = document.getElementById('loadingStatus');
+            const operationStatusEl = document.getElementById('operationStatus');
+            
+            if (statusEl) {
+                statusEl.textContent = message;
+            }
+            
+            // Also show in header for better visibility
+            if (operationStatusEl) {
+                operationStatusEl.textContent = message;
+                operationStatusEl.style.display = 'inline';
+            }
+            
+            console.log('📊 Loading Status:', message);
+        }
+        
+        // Hide operation status
+        function hideOperationStatus() {
+            const operationStatusEl = document.getElementById('operationStatus');
+            if (operationStatusEl) {
+                operationStatusEl.style.display = 'none';
+            }
+        }
+        
+        // Hide loading indicator and show main content
+        function hideLoadingIndicator() {
+            const loadingEl = document.getElementById('loadingIndicator');
+            const mainEl = document.getElementById('mainContent');
+            
+            if (loadingEl) {
+                loadingEl.style.display = 'none';
+            }
+            if (mainEl) {
+                mainEl.style.display = 'block';
+            }
+            
+            // Also hide operation status
+            hideOperationStatus();
+            
+            console.log('✅ Loading indicator hidden, main content shown');
+        }
+        
+        // Show error banner
+        function showErrorBanner(message) {
+            const banner = document.createElement('div');
+            banner.className = 'error-banner';
+            banner.innerHTML = `
+                <strong>⚠️ ${message}</strong>
+                <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; color: inherit; cursor: pointer;">×</button>
+            `;
+            document.body.insertBefore(banner, document.body.firstChild);
+        }
+        
+        // Create mock Socket.IO for offline functionality
+        function createMockSocketIO() {
+            console.log('🔧 Creating mock Socket.IO for offline functionality...');
+            window.io = function(namespace, options) {
+                return {
+                    emit: function(event, data) { 
+                        console.log(`Mock Socket.IO emit: ${event}`, data); 
+                    },
+                    on: function(event, callback) { 
+                        console.log(`Mock Socket.IO listener: ${event}`); 
+                        // For mock, never call the callback to avoid connection timeout
+                    },
+                    disconnect: function() { 
+                        console.log('Mock Socket.IO disconnect'); 
+                    },
+                    connected: false,
+                    id: 'mock-socket-id'
+                };
+            };
+            window.socketIOLoaded = false;
+        }
+        
+        // Initialize application with backend integration
+        async function initializeApp() {
+            try {
+                updateLoadingStatus('Creating session...');
+                
+                // Create real session with backend
+                let sessionToken = null;
+                try {
+                    const response = await fetch('/api/session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        sessionToken = data.token;
+                        console.log('✅ Session created:', sessionToken);
+                    } else {
+                        throw new Error('Session creation failed');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Session creation failed, using mock session:', error);
+                    sessionToken = 'mock-session-' + Date.now();
+                }
+                
+                // Check if Socket.IO is available, create mock if not
+                if (typeof io === 'undefined') {
+                    console.warn('⚠️ Socket.IO not available, creating mock for basic functionality');
+                    createMockSocketIO();
+                } else {
+                    console.log('✅ Socket.IO client library loaded');
+                    window.socketIOLoaded = true;
+                    
+                    // Test basic SocketIO connection with polling transport only
+                    const testSocket = io({
+                        transports: ['polling']  // Use only polling to avoid WebSocket frame issues
+                    });
+                    testSocket.on('connect', () => {
+                        console.log('✅ SocketIO basic connection test successful');
+                        testSocket.disconnect();
+                    });
+                    testSocket.on('connect_error', (error) => {
+                        console.error('❌ SocketIO basic connection test failed:', error);
+                        testSocket.disconnect();
+                    });
+                }
+                
+                updateLoadingStatus('Loading core services...');
+                
+                // Initialize app with real functionality
+                window.app = {
+                    sessionToken: sessionToken,
+                    isRecording: false,
+                    transcript: [],
+                    recognition: null,
+                    assemblyAISocket: null,
+                    currentTranscriptionService: 'webspeech', // 'webspeech' or 'assemblyai'
+                    apiKeys: {
+                        assemblyai: null,
+                        gemini: null
+                    },
+                    
+                    // Load API keys from backend
+                    loadApiKeys: async function() {
+                        try {
+                            console.log('🔑 Loading API keys with token:', this.sessionToken ? 'Present' : 'Missing');
+                            
+                            const response = await fetch('/api/config', {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${this.sessionToken}`,
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                const config = await response.json();
+                                this.apiKeys.assemblyai = config.assemblyai_configured;
+                                this.apiKeys.gemini = config.gemini_configured;
+                                
+                                // If AssemblyAI is configured, get the actual API key for streaming
+                                if (config.assemblyai_configured) {
+                                    try {
+                                        const keyResponse = await fetch('/api/assemblyai/key', {
+                                            headers: {
+                                                'Authorization': `Bearer ${this.sessionToken}`,
+                                                'Content-Type': 'application/json'
+                                            }
+                                        });
+                                        
+                                        if (keyResponse.ok) {
+                                            const keyData = await keyResponse.json();
+                                            this.apiKeys.assemblyai_key = keyData.api_key;
+                                            console.log('✅ AssemblyAI key retrieved for streaming');
+                                        }
+                                    } catch (error) {
+                                        console.warn('⚠️ Could not retrieve AssemblyAI key for streaming:', error);
+                                    }
+                                }
+                                
+                                console.log('✅ API keys loaded:', {
+                                    assemblyai: config.assemblyai_configured,
+                                    gemini: config.gemini_configured,
+                                    assemblyai_from_env: config.assemblyai_from_env,
+                                    gemini_from_env: config.gemini_from_env
+                                });
+                                
+                                // Store environment variable status for config modal
+                                this.envStatus = {
+                                    assemblyai: config.assemblyai_from_env,
+                                    gemini: config.gemini_from_env
+                                };
+                                
+                                return config;
+                            } else {
+                                console.error('❌ API config request failed:', response.status, response.statusText);
+                                const errorText = await response.text();
+                                console.error('Error details:', errorText);
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ Failed to load API keys:', error);
+                        }
+                        return null;
+                    },
+                    
+                    // Initialize AssemblyAI Universal Streaming v3
+                    initAssemblyAI: async function() {
+                        if (!this.apiKeys.assemblyai) {
+                            console.log('ℹ️ AssemblyAI not configured, skipping initialization');
+                            return false;
+                        }
+                        
+                        try {
+                            console.log('🎤 Initializing AssemblyAI Universal Streaming v3...');
+                            
+                            // Get streaming configuration from backend
+                            const response = await fetch('/api/assemblyai/streaming/connect', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${this.sessionToken}`
+                                }
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error('Failed to get AssemblyAI streaming configuration');
+                            }
+                            
+                            const streamingConfig = await response.json();
+                            console.log('✅ AssemblyAI streaming configuration received');
+                            
+                            // Store configuration for later use
+                            this.assemblyAIConfig = streamingConfig.config;
+                            this.assemblyAIApiKey = streamingConfig.api_key;
+                            
+                            // Don't connect immediately - wait for user to start recording
+                            console.log('✅ AssemblyAI Universal Streaming v3 ready to connect');
+                            return true;
+                            
+                        } catch (error) {
+                            console.warn('⚠️ AssemblyAI streaming initialization failed:', error.message);
+                            // Still return true if we have API key for file upload
+                            return this.apiKeys.assemblyai;
+                        }
+                    },
+                    
+                    // Connect to AssemblyAI streaming when recording starts
+                    connectAssemblyAIStreaming: async function() {
+                        if (!this.assemblyAIConfig) {
+                            throw new Error('AssemblyAI streaming not configured');
+                        }
+                        
+                        // Check if real Socket.IO is available, fallback to direct WebSocket if not
+                        if (!window.socketIOLoaded || typeof io === 'undefined') {
+                            console.warn('⚠️ Socket.IO not available, trying direct WebSocket connection...');
+                            return this.connectAssemblyAIDirectWebSocket();
+                        }
+                        
+                        try {
+                            console.log('🔗 Connecting to AssemblyAI Universal Streaming v3 via proxy...');
+                            
+                            // Connect to SocketIO namespace for AssemblyAI proxy
+                            this.assemblyAISocket = io('/assemblyai-streaming', {
+                                auth: {
+                                    token: this.sessionToken
+                                },
+                                transports: ['polling']  // Use only polling to avoid WebSocket frame issues
+                            });
+                            
+                            return new Promise((resolve, reject) => {
+                                const timeout = setTimeout(() => {
+                                    console.error('❌ AssemblyAI proxy connection timeout');
+                                    reject(new Error('Connection timeout'));
+                                }, 10000);
+                                
+                                // Debug: Log connection events
+                                this.assemblyAISocket.on('connect', () => {
+                                    console.log('🔌 Connected to SocketIO server');
+                                });
+                                
+                                this.assemblyAISocket.on('connect_error', (error) => {
+                                    console.error('❌ SocketIO connection error:', error);
+                                    clearTimeout(timeout);
+                                    reject(error);
+                                });
+                                
+                                this.assemblyAISocket.on('connected', () => {
+                                    console.log('✅ Connected to AssemblyAI proxy');
+                                    
+                                    // Start streaming with configuration
+                                    this.assemblyAISocket.emit('start_streaming', {
+                                        sample_rate: this.assemblyAIConfig.sample_rate,
+                                        format_turns: this.assemblyAIConfig.format_turns
+                                    });
+                                });
+                                
+                                this.assemblyAISocket.on('assemblyai_connected', () => {
+                                    clearTimeout(timeout);
+                                    console.log('✅ AssemblyAI WebSocket connected via proxy');
+                                    resolve();
+                                });
+                                
+                                // Add timeout for start_streaming response
+                                this.assemblyAISocket.on('error', (error) => {
+                                    console.error('❌ AssemblyAI proxy error:', error);
+                                    clearTimeout(timeout);
+                                    reject(new Error(`Proxy error: ${error.message}`));
+                                });
+                                
+                                this.assemblyAISocket.on('error', (error) => {
+                                    clearTimeout(timeout);
+                                    console.error('❌ AssemblyAI proxy error:', error);
+                                    reject(error);
+                                });
+                                
+                                this.assemblyAISocket.on('assemblyai_message', (data) => {
+                                    console.log('📨 Raw AssemblyAI message received:', data);
+                                    try {
+                                        console.log('📨 Message details - Type:', data.type, 'Transcript:', data.transcript, 'Formatted:', data.turn_is_formatted);
+                                        
+                                        // Handle AssemblyAI Universal Streaming v3 message types as per documentation
+                                        switch (data.type) {
+                                            case 'Begin':
+                                                const sessionId = data.id;
+                                                const expiresAt = data.expires_at;
+                                                console.log(`🎬 AssemblyAI session started: ${sessionId} (expires: ${new Date(expiresAt * 1000)})`);
+                                                document.getElementById('status').textContent = 'Recording - AssemblyAI active';
+                                                document.getElementById('serviceStatus').textContent = 'AssemblyAI Recording';
+                                                
+                                                // Add a test transcript to verify UI is working
+                                                this.addTranscript('🔧 AssemblyAI session started - ready for transcription');
+                                                break;
+                                                
+                                            case 'Turn':
+                                                const transcript = data.transcript || '';
+                                                const isFormatted = data.turn_is_formatted || false;
+                                                
+                                                console.log(`🔄 Turn received: "${transcript}" (formatted: ${isFormatted})`);
+                                                
+                                                if (isFormatted) {
+                                                    // This is a final formatted transcript
+                                                    if (transcript && transcript.trim()) {
+                                                        console.log('✅ Adding final transcript to UI');
+                                                        this.addTranscript(transcript.trim());
+                                                        document.getElementById('interim').textContent = '';
+                                                    }
+                                                } else {
+                                                    // This is partial/interim text
+                                                    if (transcript && transcript.trim()) {
+                                                        console.log('📝 Updating interim transcript');
+                                                        document.getElementById('interim').textContent = transcript;
+                                                    }
+                                                }
+                                                break;
+                                                
+                                            case 'Termination':
+                                                const audioDuration = data.audio_duration_seconds || 0;
+                                                const sessionDuration = data.session_duration_seconds || 0;
+                                                console.log(`🏁 AssemblyAI session terminated - Audio: ${audioDuration}s, Session: ${sessionDuration}s`);
+                                                this.addTranscript(`🏁 Session ended - Audio: ${audioDuration}s, Total: ${sessionDuration}s`);
+                                                break;
+                                                
+                                            default:
+                                                console.log(`⚠️ Unknown message type: ${data.type}`);
+                                                break;
+                                        }
+                                    } catch (error) {
+                                        console.error('❌ Error handling AssemblyAI message:', error);
+                                    }
+                                });
+                                
+                                this.assemblyAISocket.on('assemblyai_error', (error) => {
+                                    console.error('❌ AssemblyAI upstream error:', error);
+                                    document.getElementById('status').textContent = `Error: ${error.error}`;
+                                });
+                                
+                                this.assemblyAISocket.on('assemblyai_closed', (event) => {
+                                    console.log(`🔌 AssemblyAI WebSocket closed: ${event.code} ${event.message}`);
+                                    
+                                    if (event.code === 1008) {
+                                        console.error('❌ Authorization failed - check API key');
+                                        document.getElementById('status').textContent = 'Error: Invalid API key';
+                                    } else if (event.code === 1006) {
+                                        console.error('❌ Connection lost unexpectedly');
+                                        document.getElementById('status').textContent = 'Error: Connection lost';
+                                    } else if (event.code !== 1000) {
+                                        console.error(`❌ WebSocket error: ${event.code} - ${event.message}`);
+                                        document.getElementById('status').textContent = `Error: ${event.message || 'Connection failed'}`;
+                                    }
+                                });
+                                
+                                this.assemblyAISocket.on('disconnect', () => {
+                                    console.log('🔌 Disconnected from AssemblyAI proxy');
+                                });
+                            });
+                            
+                        } catch (error) {
+                            console.error('❌ Failed to connect to AssemblyAI streaming:', error);
+                            throw error;
+                        }
+                    },
+                    
+                    // Direct WebSocket connection fallback (when SocketIO is not available)
+                    connectAssemblyAIDirectWebSocket: async function() {
+                        // Show user-friendly error message
+                        const errorMessage = `AssemblyAI Real-time Streaming Unavailable
+
+The real-time streaming feature requires a WebSocket proxy server, but Socket.IO failed to load.
+
+Available alternatives:
+• Use Web Speech API for real-time transcription (select "Web Speech API" service)
+• Upload audio files for transcription (click "📁 Upload Audio/Video")
+• Fix Socket.IO loading issue for full AssemblyAI streaming support
+
+Technical details:
+• AssemblyAI Universal Streaming v3 requires Authorization header in WebSocket handshake
+• Browsers cannot set custom headers in WebSocket connections
+• Backend proxy (Socket.IO) is needed to handle proper authentication`;
+                        
+                        console.error('❌ AssemblyAI Direct WebSocket not supported');
+                        console.log('💡 Alternatives available:', {
+                            webSpeech: 'Real-time transcription via Web Speech API',
+                            fileUpload: 'Upload audio/video files for transcription',
+                            socketIOFix: 'Fix Socket.IO loading for full streaming support'
+                        });
+                        
+                        // Show user-friendly alert
+                        alert(errorMessage);
+                        
+                        // Throw error to stop the connection attempt
+                        throw new Error('Direct WebSocket to AssemblyAI not supported - use Socket.IO proxy or alternatives');
+                    },
+                    
+                    // Initialize Web Speech API
+                    initSpeechRecognition: function() {
+                        // Check for speech recognition support
+                        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                            console.warn('⚠️ Speech Recognition API not supported in this browser');
+                            console.info('💡 Try using Chrome, Edge, or Safari for speech recognition support');
+                            return false;
+                        }
+                        
+                        // Check if we're on HTTPS or localhost (required for speech recognition)
+                        const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+                        if (!isSecure) {
+                            console.warn('⚠️ Speech Recognition requires HTTPS or localhost');
+                            console.info('💡 Speech recognition will work on localhost or HTTPS sites');
+                            return false;
+                        }
+                        
+                        try {
+                            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                            this.recognition = new SpeechRecognition();
+                            
+                            this.recognition.continuous = true;
+                            this.recognition.interimResults = true;
+                            this.recognition.lang = document.getElementById('languageSelect').value || 'en-US';
+                            
+                            this.recognition.onstart = () => {
+                                console.log('🎤 Speech recognition started');
+                                document.getElementById('status').textContent = 'Listening...';
+                                document.getElementById('serviceStatus').textContent = 'Recording';
+                            };
+                            
+                            this.recognition.onresult = (event) => {
+                                let interimTranscript = '';
+                                let finalTranscript = '';
+                                
+                                for (let i = event.resultIndex; i < event.results.length; i++) {
+                                    const transcript = event.results[i][0].transcript;
+                                    if (event.results[i].isFinal) {
+                                        finalTranscript += transcript + ' ';
+                                    } else {
+                                        interimTranscript += transcript;
+                                    }
+                                }
+                                
+                                if (finalTranscript) {
+                                    this.addTranscript(finalTranscript.trim());
+                                }
+                                
+                                document.getElementById('interim').textContent = interimTranscript;
+                            };
+                            
+                            this.recognition.onerror = (event) => {
+                                console.error('Speech recognition error:', event.error);
+                                document.getElementById('status').textContent = 'Error: ' + event.error;
+                            };
+                            
+                            this.recognition.onend = () => {
+                                console.log('🎤 Speech recognition ended');
+                                if (this.isRecording) {
+                                    // Restart if we're still supposed to be recording
+                                    setTimeout(() => this.recognition.start(), 100);
+                                }
+                            };
+                            
+                            return true;
+                        } catch (error) {
+                            console.error('❌ Failed to initialize speech recognition:', error);
+                            return false;
+                        }
+                        
+                        return false;
+                    },
+                    
+                    // Start audio capture for AssemblyAI
+                    startAudioCapture: async function() {
+                        try {
+                            console.log('🎤 Requesting microphone access...');
+                            const stream = await navigator.mediaDevices.getUserMedia({ 
+                                audio: {
+                                    sampleRate: 48000, // Use higher sample rate initially, then downsample
+                                    channelCount: 1,
+                                    echoCancellation: true,
+                                    noiseSuppression: true,
+                                    autoGainControl: true, // Enable automatic gain control
+                                    latency: 0.01, // Low latency for real-time
+                                    volume: 1.0 // Full volume
+                                } 
+                            });
+                            
+                            console.log('✅ Microphone access granted');
+                            console.log('🎵 Audio stream info:', {
+                                tracks: stream.getAudioTracks().length,
+                                settings: stream.getAudioTracks()[0]?.getSettings()
+                            });
+                            
+                            // Create AudioContext with optimal settings
+                            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                            
+                            // Log actual sample rate for debugging
+                            console.log('AudioContext sample rate: ' + this.audioContext.sampleRate + 'Hz');
+                            console.log('AudioContext state: ' + this.audioContext.state);
+                            
+                            this.audioSource = this.audioContext.createMediaStreamSource(stream);
+                            
+                            // Create a gain node to boost microphone input
+                            this.microphoneGain = this.audioContext.createGain();
+                            this.microphoneGain.gain.value = 3.0; // Boost microphone by 3x
+                            console.log('Microphone gain boost applied: 3.0x');
+                            
+                            // Create an analyser to monitor audio levels
+                            this.audioAnalyser = this.audioContext.createAnalyser();
+                            this.audioAnalyser.fftSize = 256;
+                            
+                            // Connect: source → gain → analyser
+                            this.audioSource.connect(this.microphoneGain);
+                            this.microphoneGain.connect(this.audioAnalyser);
+                            
+                            // Monitor audio levels periodically for debugging
+                            const dataArray = new Uint8Array(this.audioAnalyser.frequencyBinCount);
+                            const checkAudioLevel = () => {
+                                if (this.isRecording) {
+                                    this.audioAnalyser.getByteFrequencyData(dataArray);
+                                    const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+                                    const max = Math.max(...dataArray);
+                                    
+                                    // Log audio levels every few seconds
+                                    if (!this.lastAudioLevelLog || Date.now() - this.lastAudioLevelLog > 3000) {
+                                        console.log('Microphone levels - Average: ' + average.toFixed(1) + ', Max: ' + max + ', Active: ' + (max > 10));
+                                        this.lastAudioLevelLog = Date.now();
+                                    }
+                                    
+                                    setTimeout(checkAudioLevel, 1000);
+                                }
+                            };
+                            setTimeout(checkAudioLevel, 1000);
+                            
+                            // Try to use modern AudioWorkletNode, fallback to ScriptProcessorNode
+                            try {
+                                // Modern approach with AudioWorkletNode (preferred)
+                                if (this.audioContext.audioWorklet) {
+                                    console.log('🎵 Using modern AudioWorkletNode for audio processing');
+                                    
+                                    // Create a more robust inline worklet for audio processing
+                                    const workletCode = `
+                                        class AudioProcessor extends AudioWorkletProcessor {
+                                            constructor() {
+                                                super();
+                                                this.bufferSize = 0;
+                                                this.buffer = [];
+                                                // Use actual AudioContext sample rate (48kHz) and downsample to 16kHz
+                                                this.inputSampleRate = 48000; // AudioContext sample rate
+                                                this.outputSampleRate = 16000; // AssemblyAI expected rate
+                                                this.downsampleRatio = this.inputSampleRate / this.outputSampleRate; // 3:1 ratio
+                                                this.targetBufferDuration = 50; // 50ms chunks as per documentation
+                                                this.samplesPerBuffer = Math.floor(this.outputSampleRate * this.targetBufferDuration / 1000); // 800 samples at 16kHz
+                                                this.lastSentTime = 0;
+                                                this.minInterval = 30; // Minimum 30ms between transmissions
+                                                console.log('AudioWorklet configured: ' + this.inputSampleRate + 'Hz -> ' + this.outputSampleRate + 'Hz, ' + this.targetBufferDuration + 'ms chunks (' + this.samplesPerBuffer + ' samples)');
+                                            }
+                                            
+                                            process(inputs, outputs, parameters) {
+                                                const input = inputs[0];
+                                                if (input.length > 0) {
+                                                    const inputData = input[0];
+                                                    
+                                                    // Downsample from 48kHz to 16kHz by taking every 3rd sample
+                                                    for (let i = 0; i < inputData.length; i += this.downsampleRatio) {
+                                                        this.buffer.push(inputData[Math.floor(i)]);
+                                                    }
+                                                    
+                                                    // Send when buffer is full AND enough time has passed
+                                                    const currentTime = Date.now();
+                                                    if (this.buffer.length >= this.samplesPerBuffer && (currentTime - this.lastSentTime) >= this.minInterval) {
+                                                        // Convert float32 to int16 with proper scaling
+                                                        const int16Buffer = new Int16Array(this.buffer.length);
+                                                        for (let i = 0; i < this.buffer.length; i++) {
+                                                            // Clamp to prevent overflow and apply proper scaling
+                                                            const sample = Math.max(-1, Math.min(1, this.buffer[i]));
+                                                            int16Buffer[i] = Math.round(sample * 32767);
+                                                        }
+                                                        
+                                                        // Check if audio contains meaningful data before sending
+                                                        const hasAudio = int16Buffer.some(sample => Math.abs(sample) > 100);
+                                                        const rms = Math.sqrt(int16Buffer.reduce((sum, sample) => sum + sample * sample, 0) / int16Buffer.length);
+                                                        
+                                                        // Always log to understand audio patterns
+                                                        if (!this.debugCount) this.debugCount = 0;
+                                                        if (this.debugCount < 50) {
+                                                            console.log('AudioWorklet - RMS: ' + rms.toFixed(2) + ', HasAudio: ' + hasAudio + ', Max: ' + Math.max(...int16Buffer.map(s => Math.abs(s))));
+                                                            this.debugCount++;
+                                                        }
+                                                        
+                                                        // Send if there's any meaningful audio activity (very permissive)
+                                                        if (hasAudio || rms > 30) {
+                                                            // Send to main thread
+                                                            this.port.postMessage({
+                                                                type: 'audio',
+                                                                buffer: int16Buffer.buffer,
+                                                                rms: rms,
+                                                                hasAudio: hasAudio
+                                                            });
+                                                            
+                                                            this.lastSentTime = currentTime;
+                                                        }                                                        // Clear buffer
+                                                        this.buffer = [];
+                                                    }
+                                                }
+                                                return true;
+                                            }
+                                        }
+                                        registerProcessor('audio-processor', AudioProcessor);
+                                    `;
+                                    
+                                    const blob = new Blob([workletCode], { type: 'application/javascript' });
+                                    const workletUrl = URL.createObjectURL(blob);
+                                    
+                                    await this.audioContext.audioWorklet.addModule(workletUrl);
+                                    this.audioProcessor = new AudioWorkletNode(this.audioContext, 'audio-processor');
+                                    
+                                    this.audioProcessor.port.onmessage = (event) => {
+                                        if (this.isRecording && this.assemblyAISocket) {
+                                            const messageData = event.data;
+                                            
+                                            // Handle new message format with audio filtering
+                                            if (messageData.type === 'audio') {
+                                                const audioBuffer = messageData.buffer;
+                                                const rms = messageData.rms;
+                                                const hasAudio = messageData.hasAudio;
+                                                
+                                                // Debug: Log audio data (first 50 times for comprehensive debugging)
+                                                if (!this.audioDataCount) this.audioDataCount = 0;
+                                                if (this.audioDataCount < 50) {
+                                                    console.log('Sending audio data: ' + audioBuffer.byteLength + ' bytes');
+                                                    console.log('Audio contains sound: ' + hasAudio + ' (RMS: ' + rms.toFixed(2) + ')');
+                                                    
+                                                    // Show throttling is working
+                                                    if (!this.lastTransmitTime) this.lastTransmitTime = Date.now();
+                                                    const timeDiff = Date.now() - this.lastTransmitTime;
+                                                    console.log('Time since last transmission: ' + timeDiff + 'ms');
+                                                    this.lastTransmitTime = Date.now();
+                                                }
+                                                this.audioDataCount++;
+                                                
+                                                // Send audio data based on connection type
+                                                if (this.assemblyAISocket.emit) {
+                                                    // SocketIO connection
+                                                    if (this.assemblyAISocket.connected) {
+                                                        // Convert ArrayBuffer to Uint8Array for proper SocketIO transmission
+                                                        const audioArray = new Uint8Array(audioBuffer);
+                                                        this.assemblyAISocket.emit('audio_data', {
+                                                            audio: Array.from(audioArray)
+                                                        });
+                                                    }
+                                                } else if (this.assemblyAISocket.readyState === WebSocket.OPEN) {
+                                                    // Direct WebSocket connection
+                                                    this.assemblyAISocket.send(audioBuffer);
+                                                }
+                                            }
+                                        }
+                                    };
+                                    
+                                    URL.revokeObjectURL(workletUrl);
+                                } else {
+                                    throw new Error('AudioWorklet not supported');
+                                }
+                            } catch (workletError) {
+                                // Fallback to ScriptProcessorNode for older browsers
+                                console.warn('⚠️ AudioWorklet not available, using ScriptProcessorNode fallback');
+                                console.log('💡 Note: ScriptProcessorNode is deprecated but still functional');
+                                
+                                this.audioProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+                                
+                                this.audioProcessor.onaudioprocess = (event) => {
+                                    if (this.isRecording && this.assemblyAISocket) {
+                                        const inputBuffer = event.inputBuffer.getChannelData(0);
+                                        
+                                        // Downsample from 48kHz to 16kHz by taking every 3rd sample
+                                        const downsampleRatio = 3; // 48000 / 16000 = 3
+                                        const downsampledLength = Math.floor(inputBuffer.length / downsampleRatio);
+                                        const downsampledBuffer = new Float32Array(downsampledLength);
+                                        
+                                        for (let i = 0; i < downsampledLength; i++) {
+                                            downsampledBuffer[i] = inputBuffer[i * downsampleRatio];
+                                        }
+                                        
+                                        // Convert downsampled float32 to int16 for AssemblyAI Universal Streaming v3
+                                        const int16Buffer = new Int16Array(downsampledLength);
+                                        for (let i = 0; i < downsampledLength; i++) {
+                                            int16Buffer[i] = Math.max(-32768, Math.min(32767, downsampledBuffer[i] * 32768));
+                                        }
+                                        
+                                        // Check if audio data contains actual audio (not silence)
+                                        const hasAudio = int16Buffer.some(sample => Math.abs(sample) > 100);
+                                        const rms = Math.sqrt(int16Buffer.reduce((sum, sample) => sum + sample * sample, 0) / int16Buffer.length);
+                                        
+                                        // Use same filtering as AudioWorklet (RMS > 30) for consistency
+                                        if (hasAudio || rms > 30) {
+                                            if (!this.audioDataCount) this.audioDataCount = 0;
+                                            if (this.audioDataCount < 50) {
+                                                console.log('📢 ScriptProcessor - Sending audio data: ' + int16Buffer.buffer.byteLength + ' bytes (downsampled from ' + inputBuffer.length + ' to ' + downsampledLength + ' samples)');
+                                                console.log('📢 ScriptProcessor - Audio contains sound: ' + hasAudio + ' (RMS: ' + rms.toFixed(2) + ')');
+                                            }
+                                            this.audioDataCount++;
+                                            
+                                            // Send audio data based on connection type
+                                            if (this.assemblyAISocket.emit) {
+                                                // SocketIO connection
+                                                if (this.assemblyAISocket.connected) {
+                                                    // Convert ArrayBuffer to Uint8Array for proper SocketIO transmission
+                                                    const audioArray = new Uint8Array(int16Buffer.buffer);
+                                                    this.assemblyAISocket.emit('audio_data', {
+                                                        audio: Array.from(audioArray)
+                                                    });
+                                                }
+                                            } else if (this.assemblyAISocket.readyState === WebSocket.OPEN) {
+                                                // Direct WebSocket connection
+                                                this.assemblyAISocket.send(int16Buffer.buffer);
+                                            }
+                                        } else if (!this.audioDataCount || this.audioDataCount < 10) {
+                                            console.log('🔇 ScriptProcessor - Skipping silent audio chunk (RMS: ' + rms.toFixed(2) + ', threshold: 30)');
+                                        }
+                                    }
+                                };
+                            }
+                            
+                            // Connect the gain-boosted signal to the audio processor
+                            this.microphoneGain.connect(this.audioProcessor);
+                            if (this.audioProcessor.connect) {
+                                this.audioProcessor.connect(this.audioContext.destination);
+                            }
+                            
+                            this.mediaStream = stream;
+                            
+                        } catch (error) {
+                            console.error('❌ Failed to start audio capture:', error);
+                            // Fallback to Web Speech API
+                            if (this.recognition) {
+                                this.recognition.start();
+                            }
+                        }
+                    },
+                    
+                    // Stop audio capture
+                    stopAudioCapture: function() {
+                        if (this.audioProcessor) {
+                            try {
+                                // Handle both AudioWorkletNode and ScriptProcessorNode
+                                if (this.audioProcessor.port) {
+                                    // AudioWorkletNode cleanup
+                                    this.audioProcessor.port.onmessage = null;
+                                }
+                                this.audioProcessor.disconnect();
+                                this.audioProcessor = null;
+                            } catch (error) {
+                                console.warn('⚠️ Error disconnecting audio processor:', error);
+                            }
+                        }
+                        
+                        if (this.audioSource) {
+                            try {
+                                this.audioSource.disconnect();
+                                this.audioSource = null;
+                            } catch (error) {
+                                console.warn('⚠️ Error disconnecting audio source:', error);
+                            }
+                        }
+                        
+                        if (this.audioContext) {
+                            try {
+                                this.audioContext.close();
+                                this.audioContext = null;
+                            } catch (error) {
+                                console.warn('⚠️ Error closing audio context:', error);
+                            }
+                        }
+                        
+                        if (this.mediaStream) {
+                            try {
+                                this.mediaStream.getTracks().forEach(track => track.stop());
+                                this.mediaStream = null;
+                            } catch (error) {
+                                console.warn('⚠️ Error stopping media stream:', error);
+                            }
+                        }
+                    },
+                    
+                    // Add transcript entry
+                    addTranscript: function(text) {
+                        console.log('📝 addTranscript called with:', text);
+                        const timestamp = new Date().toLocaleTimeString();
+                        const entry = { timestamp, text };
+                        this.transcript.push(entry);
+                        
+                        const transcriptDiv = document.getElementById('transcript');
+                        console.log('📝 Transcript div found:', !!transcriptDiv);
+                        
+                        const entryDiv = document.createElement('div');
+                        entryDiv.className = 'transcript-entry';
+                        entryDiv.innerHTML = `
+                            <span class="timestamp">[${timestamp}]</span>
+                            <span class="text">${text}</span>
+                        `;
+                        transcriptDiv.appendChild(entryDiv);
+                        transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+                        
+                        console.log('✅ Transcript entry added to UI');
+                        
+                        // Clear interim result
+                        document.getElementById('interim').textContent = '';
+                    },
+                    
+                    // Start recording
+                    startRecording: async function() {
+                        // Check if user selected file upload mode
+                        if (this.currentTranscriptionService === 'assemblyai-file') {
+                            alert('AssemblyAI File Upload is for pre-recorded audio files.\n\nTo upload a file:\n• Click "📁 Upload Audio/Video" button\n• Select your audio/video file\n• Wait for transcription to complete\n\nFor real-time recording, select "AssemblyAI Streaming" or "Web Speech API".');
+                            return;
+                        }
+                        
+                        this.isRecording = true;
+                        document.getElementById('startBtn').disabled = true;
+                        document.getElementById('stopBtn').disabled = false;
+                        
+                        // Handle different streaming services
+                        if (this.currentTranscriptionService === 'assemblyai-streaming') {
+                            if (!this.assemblyAIConfig) {
+                                throw new Error('AssemblyAI streaming not configured. Please check your API key in Settings.');
+                            }
+                            
+                            console.log('🎤 Starting AssemblyAI Universal Streaming...');
+                            document.getElementById('status').textContent = 'Connecting to AssemblyAI...';
+                            document.getElementById('serviceStatus').textContent = 'AssemblyAI Connecting';
+                            
+                            // Connect to AssemblyAI streaming
+                            await this.connectAssemblyAIStreaming();
+                            
+                            document.getElementById('status').textContent = 'Recording (AssemblyAI Streaming)';
+                            document.getElementById('serviceStatus').textContent = 'AssemblyAI Streaming';
+                            
+                            // Start audio capture for AssemblyAI
+                            await this.startAudioCapture();
+                            
+                        } else if (this.recognition && (this.currentTranscriptionService === 'webspeech' || this.currentTranscriptionService === 'auto')) {
+                            console.log('🎤 Starting Web Speech API...');
+                            document.getElementById('status').textContent = 'Recording (Web Speech)';
+                            document.getElementById('serviceStatus').textContent = 'Web Speech Recording';
+                            this.recognition.start();
+                            
+                        } else {
+                            // No real-time transcription available
+                            let message = 'Real-time transcription is not available.\n\n';
+                            
+                            if (this.currentTranscriptionService === 'assemblyai-streaming') {
+                                message += 'AssemblyAI Streaming:\n• Configure AssemblyAI API key in Settings\n• Ensure stable internet connection\n\n';
+                            }
+                            
+                            message += 'Alternatives:\n• Use Web Speech API (Chrome/Edge/Safari)\n• Upload pre-recorded files with AssemblyAI\n• Check browser permissions for microphone access';
+                            
+                            alert(message);
+                            
+                            // Reset button states
+                            this.isRecording = false;
+                            document.getElementById('startBtn').disabled = false;
+                            document.getElementById('stopBtn').disabled = true;
+                        }
+                    },
+                    
+                    // Stop recording
+                    stopRecording: function() {
+                        console.log('⏹️ Recording stopped');
+                        this.isRecording = false;
+                        
+                        // Stop AssemblyAI streaming if active
+                        if (this.currentTranscriptionService === 'assemblyai-streaming') {
+                            this.stopAudioCapture();
+                            if (this.assemblyAISocket) {
+                                if (this.assemblyAISocket.disconnect) {
+                                    // SocketIO connection
+                                    this.assemblyAISocket.disconnect();
+                                } else if (this.assemblyAISocket.readyState === WebSocket.OPEN) {
+                                    // Direct WebSocket connection
+                                    const terminateMessage = JSON.stringify({ type: 'Terminate' });
+                                    this.assemblyAISocket.send(terminateMessage);
+                                    setTimeout(() => {
+                                        if (this.assemblyAISocket) {
+                                            this.assemblyAISocket.close();
+                                        }
+                                    }, 1000);
+                                }
+                                this.assemblyAISocket = null;
+                            }
+                        }
+                        
+                        // Stop Web Speech API if active
+                        if (this.recognition && (this.currentTranscriptionService === 'webspeech' || this.currentTranscriptionService === 'auto')) {
+                            this.recognition.stop();
+                        }
+                        
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('stopBtn').disabled = true;
+                        document.getElementById('status').textContent = 'Ready';
+                        
+                        // Update service status based on current service
+                        switch (this.currentTranscriptionService) {
+                            case 'assemblyai-streaming':
+                                document.getElementById('serviceStatus').textContent = 'AssemblyAI Streaming Ready';
+                                break;
+                            case 'assemblyai-file':
+                                document.getElementById('serviceStatus').textContent = 'AssemblyAI File Upload Ready';
+                                break;
+                            case 'webspeech':
+                                document.getElementById('serviceStatus').textContent = 'Web Speech Ready';
+                                break;
+                            default:
+                                document.getElementById('serviceStatus').textContent = 'Ready';
+                        }
+                        
+                        document.getElementById('interim').textContent = '';
+                    },
+                    
+                    // Clear transcript
+                    clearTranscript: function() {
+                        this.transcript = [];
+                        document.getElementById('transcript').innerHTML = '';
+                        document.getElementById('interim').textContent = '';
+                        console.log('🗑️ Transcript cleared');
+                    },
+                    
+                    // Summarize transcript
+                    summarizeTranscript: async function() {
+                        if (this.transcript.length === 0) {
+                            alert('No transcript to summarize');
+                            return;
+                        }
+                        
+                        const fullText = this.transcript.map(entry => entry.text).join(' ');
+                        
+                        try {
+                            updateLoadingStatus('Generating summary...');
+                            document.getElementById('loadingIndicator').style.display = 'flex';
+                            
+                            const response = await fetch('/api/gemini/summarize', {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${this.sessionToken}`
+                                },
+                                body: JSON.stringify({ 
+                                    transcript: fullText
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                hideLoadingIndicator();
+                                this.showSummary(data.summary);
+                            } else {
+                                hideLoadingIndicator();
+                                const errorData = await response.json().catch(() => ({}));
+                                const errorMessage = errorData.error || `Summary generation failed with status ${response.status}`;
+                                throw new Error(errorMessage);
+                            }
+                        } catch (error) {
+                            console.error('Summary error:', error);
+                            hideLoadingIndicator();
+                            alert('Failed to generate summary. Please check your Gemini API key in settings.');
+                        }
+                    },
+                    
+                    // Show summary in modal
+                    showSummary: function(summary) {
+                        const modal = document.createElement('div');
+                        modal.className = 'modal';
+                        modal.style.display = 'block';
+                        modal.innerHTML = `
+                            <div class="modal-content">
+                                <h3>📝 Meeting Summary</h3>
+                                <div style="max-height: 400px; overflow-y: auto; padding: 15px; background: #f8f9fa; border-radius: 5px; margin: 15px 0;">
+                                    ${summary.replace(/\n/g, '<br>')}
+                                </div>
+                                <div class="modal-actions">
+                                    <button onclick="this.closest('.modal').remove()" class="btn btn-primary">Close</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(modal);
+                    },
+                    
+                    // Translate transcript
+                    translateTranscript: async function() {
+                        if (this.transcript.length === 0) {
+                            alert('No transcript to translate');
+                            return;
+                        }
+                        
+                        // Show language selection modal
+                        const modal = document.createElement('div');
+                        modal.className = 'modal';
+                        modal.style.display = 'block';
+                        modal.innerHTML = `
+                            <div class="modal-content">
+                                <h3>🌐 Translate Transcript</h3>
+                                <div class="form-group">
+                                    <label for="targetLanguage">Target Language:</label>
+                                    <select id="targetLanguage" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <option value="es">Spanish</option>
+                                        <option value="fr">French</option>
+                                        <option value="de">German</option>
+                                        <option value="it">Italian</option>
+                                        <option value="pt">Portuguese</option>
+                                        <option value="ja">Japanese</option>
+                                        <option value="ko">Korean</option>
+                                        <option value="zh">Chinese (Simplified)</option>
+                                        <option value="ar">Arabic</option>
+                                        <option value="ru">Russian</option>
+                                        <option value="my">Myanmar (Burmese)</option>
+                                        <option value="hi">Hindi</option>
+                                        <option value="bn">Bengali</option>
+                                    </select>
+                                </div>
+                                <div class="modal-actions">
+                                    <button onclick="window.app.performTranslation(document.getElementById('targetLanguage').value); this.closest('.modal').remove();" class="btn btn-primary">Translate</button>
+                                    <button onclick="this.closest('.modal').remove()" class="btn btn-secondary">Cancel</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(modal);
+                    },
+                    
+                    // Perform translation
+                    performTranslation: async function(targetLanguage) {
+                        if (!this.apiKeys.gemini) {
+                            alert('Gemini API key required for translation. Please configure it in Settings.');
+                            return;
+                        }
+                        
+                        const fullText = this.transcript.map(entry => entry.text).join(' ');
+                        
+                        try {
+                            updateLoadingStatus('Translating...');
+                            document.getElementById('loadingIndicator').style.display = 'flex';
+                            
+                            const response = await fetch('/api/gemini/translate', {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${this.sessionToken}`
+                                },
+                                body: JSON.stringify({ 
+                                    text: fullText,
+                                    target_language: targetLanguage,
+                                    session_token: this.sessionToken 
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                this.showTranslation(data.translation, targetLanguage);
+                            } else {
+                                throw new Error('Translation failed');
+                            }
+                        } catch (error) {
+                            console.error('Translation error:', error);
+                            alert('Failed to translate. Please check your Gemini API key in settings.');
+                        } finally {
+                            hideLoadingIndicator();
+                        }
+                    },
+                    
+                    // Show translation in modal
+                    showTranslation: function(translation, targetLanguage) {
+                        const languageNames = {
+                            'es': 'Spanish', 'fr': 'French', 'de': 'German', 'it': 'Italian',
+                            'pt': 'Portuguese', 'ja': 'Japanese', 'ko': 'Korean', 'zh': 'Chinese',
+                            'ar': 'Arabic', 'ru': 'Russian', 'my': 'Myanmar', 'hi': 'Hindi', 'bn': 'Bengali'
+                        };
+                        
+                        const modal = document.createElement('div');
+                        modal.className = 'modal';
+                        modal.style.display = 'block';
+                        modal.innerHTML = `
+                            <div class="modal-content">
+                                <h3>🌐 Translation (${languageNames[targetLanguage] || targetLanguage})</h3>
+                                <div style="max-height: 400px; overflow-y: auto; padding: 15px; background: #f8f9fa; border-radius: 5px; margin: 15px 0;">
+                                    ${translation.replace(/\n/g, '<br>')}
+                                </div>
+                                <div class="modal-actions">
+                                    <button onclick="window.app.exportTranslation('${translation}', '${targetLanguage}')" class="btn btn-outline">💾 Export Translation</button>
+                                    <button onclick="this.closest('.modal').remove()" class="btn btn-primary">Close</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(modal);
+                    },
+                    
+                    // Export translation
+                    exportTranslation: function(translation, targetLanguage) {
+                        const languageNames = {
+                            'es': 'Spanish', 'fr': 'French', 'de': 'German', 'it': 'Italian',
+                            'pt': 'Portuguese', 'ja': 'Japanese', 'ko': 'Korean', 'zh': 'Chinese',
+                            'ar': 'Arabic', 'ru': 'Russian', 'my': 'Myanmar', 'hi': 'Hindi', 'bn': 'Bengali'
+                        };
+                        
+                        const content = `Translation to ${languageNames[targetLanguage] || targetLanguage}\n` +
+                                      `Generated: ${new Date().toLocaleString()}\n\n` +
+                                      translation;
+                        
+                        const blob = new Blob([content], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `translation-${targetLanguage}-${new Date().toISOString().split('T')[0]}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        console.log('💾 Translation exported');
+                    },
+                    
+                    // Extract key information from transcript
+                    extractKeyInfo: async function() {
+                        if (this.transcript.length === 0) {
+                            alert('No transcript to extract information from');
+                            return;
+                        }
+                        
+                        if (!this.apiKeys.gemini) {
+                            alert('Gemini API key required for extraction. Please configure it in Settings.');
+                            return;
+                        }
+                        
+                        const fullText = this.transcript.map(entry => entry.text).join(' ');
+                        
+                        try {
+                            updateLoadingStatus('Extracting key information...');
+                            document.getElementById('loadingIndicator').style.display = 'flex';
+                            
+                            const response = await fetch('/api/gemini/extract', {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${this.sessionToken}`
+                                },
+                                body: JSON.stringify({ 
+                                    text: fullText,
+                                    session_token: this.sessionToken 
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                this.showExtraction(data.extraction);
+                            } else {
+                                const errorData = await response.json();
+                                throw new Error(errorData.error || 'Extraction failed');
+                            }
+                        } catch (error) {
+                            console.error('Extraction error:', error);
+                            alert(`Failed to extract key information: ${error.message}`);
+                        } finally {
+                            hideLoadingIndicator();
+                        }
+                    },
+                    
+                    // Show extraction results in modal
+                    showExtraction: function(extraction) {
+                        const modal = document.createElement('div');
+                        modal.className = 'modal';
+                        modal.style.display = 'block';
+                        modal.innerHTML = `
+                            <div class="modal-content">
+                                <h3>🔍 Key Information Extraction</h3>
+                                <div style="max-height: 400px; overflow-y: auto; padding: 15px; background: #f8f9fa; border-radius: 5px; margin: 15px 0; white-space: pre-wrap;">
+                                    ${extraction.replace(/\n/g, '<br>')}
+                                </div>
+                                <div class="modal-actions">
+                                    <button onclick="window.app.exportExtraction('${extraction.replace(/'/g, "\\'")}');" class="btn btn-outline">💾 Export Extraction</button>
+                                    <button onclick="this.closest('.modal').remove()" class="btn btn-primary">Close</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(modal);
+                    },
+                    
+                    // Export extraction
+                    exportExtraction: function(extraction) {
+                        const content = `Key Information Extraction\n` +
+                                      `Generated: ${new Date().toLocaleString()}\n\n` +
+                                      extraction;
+                        
+                        const blob = new Blob([content], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `extraction-${new Date().toISOString().split('T')[0]}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        console.log('💾 Extraction exported');
+                    },
+                    
+                    // Export transcript
+                    exportTranscript: function() {
+                        if (this.transcript.length === 0) {
+                            alert('No transcript to export');
+                            return;
+                        }
+                        
+                        const content = this.transcript.map(entry => 
+                            `[${entry.timestamp}] ${entry.text}`
+                        ).join('\n');
+                        
+                        const blob = new Blob([content], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `transcript-${new Date().toISOString().split('T')[0]}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        console.log('💾 Transcript exported');
+                    },
+                    
+                    // Show help modal
+                    showHelp: function() {
+                        const modal = document.createElement('div');
+                        modal.className = 'modal';
+                        modal.style.display = 'block';
+                        modal.innerHTML = `
+                            <div class="modal-content">
+                                <h3>❓ Help & Instructions</h3>
+                                <div style="max-height: 400px; overflow-y: auto;">
+                                    <h4>🎤 Transcription Services</h4>
+                                    <p>• <strong>Auto:</strong> Automatically selects the best available service</p>
+                                    <p>• <strong>AssemblyAI Streaming:</strong> Real-time transcription with high accuracy</p>
+                                    <p>• <strong>AssemblyAI File Upload:</strong> Upload pre-recorded audio/video files</p>
+                                    <p>• <strong>Web Speech API:</strong> Browser-based real-time transcription</p>
+                                    
+                                    <h4>🎙️ Real-time Recording</h4>
+                                    <p>• Select "AssemblyAI Streaming" or "Web Speech API"</p>
+                                    <p>• Click "Start Recording" to begin</p>
+                                    <p>• Speak clearly into your microphone</p>
+                                    <p>• Click "Stop Recording" when finished</p>
+                                    
+                                    <h4>📁 File Upload</h4>
+                                    <p>• Select "AssemblyAI File Upload" service</p>
+                                    <p>• Choose your model:</p>
+                                    <p>&nbsp;&nbsp;- <strong>Universal:</strong> Multi-language support, good accuracy</p>
+                                    <p>&nbsp;&nbsp;- <strong>Slam-1:</strong> English only, highest accuracy + key terms</p>
+                                    <p>• For Slam-1: Add key terms for better accuracy</p>
+                                    <p>• Click "Upload Audio/Video" button</p>
+                                    <p>• Choose your audio/video file (up to 100MB)</p>
+                                    <p>• Wait for transcription to complete</p>
+                                    
+                                    <h4>🎯 Key Terms (Slam-1 Only)</h4>
+                                    <p>• <strong>Purpose:</strong> Improve accuracy for domain-specific content</p>
+                                    <p>• <strong>Examples:</strong> Names, medical terms, technical vocabulary</p>
+                                    <p>• <strong>Format:</strong> One term per line, max 6 words per term</p>
+                                    <p>• <strong>Limit:</strong> Up to 1000 terms total</p>
+                                    <p>• <strong>Use Cases:</strong> Medical, legal, technical, or specialized content</p>
+                                    
+                                    <h4>🌐 Language Support</h4>
+                                    <p>• Select your language from the dropdown</p>
+                                    <p>• Language changes apply to new recordings</p>
+                                    <p>• AssemblyAI supports more languages than Web Speech</p>
+                                    
+                                    <h4>📝 AI Features</h4>
+                                    <p>• <strong>Summarize:</strong> Generate AI summary (requires Gemini API key)</p>
+                                    <p>• <strong>Translate:</strong> Translate to multiple languages</p>
+                                    <p>• <strong>Export:</strong> Download transcript as text file</p>
+                                    <p>• <strong>Clear:</strong> Remove all transcript content</p>
+                                    
+                                    <h4>⚙️ API Configuration</h4>
+                                    <p>• <strong>AssemblyAI:</strong> For streaming and file upload transcription</p>
+                                    <p>• <strong>Gemini:</strong> For AI summarization and translation</p>
+                                    <p>• Keys can be loaded from environment variables or entered manually</p>
+                                    
+                                    <h4>🔧 Technical Requirements</h4>
+                                    <p>• <strong>AssemblyAI Streaming:</strong> Requires API key and internet connection</p>
+                                    <p>• <strong>Web Speech API:</strong> Chrome, Edge, Safari on HTTPS/localhost</p>
+                                    <p>• <strong>File Upload:</strong> Requires AssemblyAI API key</p>
+                                    
+                                    <h4>🚀 Quick Start</h4>
+                                    <p>1. Configure API keys in Settings (or use environment variables)</p>
+                                    <p>2. Select your preferred transcription service</p>
+                                    <p>3. Choose your language</p>
+                                    <p>4. Start recording or upload a file</p>
+                                    <p>5. Use AI features for summaries and translations</p>
+                                </div>
+                                <div class="modal-actions">
+                                    <button onclick="this.closest('.modal').remove()" class="btn btn-primary">Got it!</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(modal);
+                    },
+                    
+                    // Upload and transcribe file using AssemblyAI
+                    uploadAndTranscribeFile: async function(file) {
+                        if (!this.apiKeys.assemblyai) {
+                            alert('AssemblyAI API key required for file transcription. Please configure it in Settings.');
+                            return;
+                        }
+                        
+                        // Validate file type
+                        const allowedTypes = [
+                            'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/flac', 
+                            'audio/ogg', 'audio/aac', 'audio/x-ms-wma',
+                            'video/mp4', 'video/quicktime', 'video/x-msvideo'
+                        ];
+                        
+                        const allowedExtensions = ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac', '.wma', '.mp4', '.mov', '.avi'];
+                        const fileExt = '.' + file.name.toLowerCase().split('.').pop();
+                        
+                        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExt)) {
+                            alert(`Unsupported file format: ${fileExt}\nSupported formats: ${allowedExtensions.join(', ')}`);
+                            return;
+                        }
+                        
+                        const maxSize = 100 * 1024 * 1024; // 100MB limit
+                        if (file.size > maxSize) {
+                            alert('File too large. Maximum size is 100MB.');
+                            return;
+                        }
+                        
+                        console.log(`📁 Uploading file: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB, ${file.type || 'unknown type'})`);
+                        
+                        try {
+                            updateLoadingStatus('Uploading file...');
+                            document.getElementById('loadingIndicator').style.display = 'flex';
+                            
+                            // Create FormData for file upload
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            formData.append('session_token', this.sessionToken);
+                            
+                            // Upload file to AssemblyAI via our backend
+                            const uploadResponse = await fetch('/api/assemblyai/upload', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${this.sessionToken}`
+                                },
+                                body: formData
+                            });
+                            
+                            if (!uploadResponse.ok) {
+                                const errorData = await uploadResponse.json().catch(() => ({}));
+                                const errorMessage = errorData.error || `Upload failed with status ${uploadResponse.status}`;
+                                throw new Error(errorMessage);
+                            }
+                            
+                            const { upload_url } = await uploadResponse.json();
+                            console.log('✅ File uploaded to AssemblyAI');
+                            
+                            updateLoadingStatus('Starting transcription...');
+                            
+                            // Get selected model for file transcription
+                            const selectedModel = document.getElementById('assemblyaiModelSelect').value;
+                            const languageCode = document.getElementById('languageSelect').value.split('-')[0]; // Convert en-US to en
+                            
+                            // Validate model selection for language
+                            if (selectedModel === 'slam-1' && languageCode !== 'en') {
+                                alert('Slam-1 model only supports English. Please select English language or switch to Universal model for other languages.');
+                                return;
+                            }
+                            
+                            // Prepare transcription request
+                            const transcriptionRequest = {
+                                audio_url: upload_url,
+                                language_code: languageCode,
+                                model: selectedModel
+                            };
+                            
+                            // Add keyterms for Slam-1 model
+                            if (selectedModel === 'slam-1') {
+                                const keytermsInput = document.getElementById('keytermsInput').value.trim();
+                                if (keytermsInput) {
+                                    // Parse keyterms (one per line, filter empty lines)
+                                    const keyterms = keytermsInput
+                                        .split('\n')
+                                        .map(term => term.trim())
+                                        .filter(term => term.length > 0)
+                                        .slice(0, 1000); // Limit to 1000 terms as per documentation
+                                    
+                                    if (keyterms.length > 0) {
+                                        transcriptionRequest.keyterms_prompt = keyterms;
+                                        console.log(`🎯 Using ${keyterms.length} key terms for Slam-1 enhancement`);
+                                    }
+                                }
+                            }
+                            
+                            console.log(`🎯 Using AssemblyAI model: ${selectedModel} for language: ${languageCode}`);
+                            
+                            // Start transcription with selected model and keyterms
+                            const transcribeResponse = await fetch('/api/assemblyai/transcribe', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${this.sessionToken}`
+                                },
+                                body: JSON.stringify(transcriptionRequest)
+                            });
+                            
+                            if (!transcribeResponse.ok) {
+                                const errorData = await transcribeResponse.json().catch(() => ({}));
+                                const errorMessage = errorData.error || `Transcription failed with status ${transcribeResponse.status}`;
+                                throw new Error(errorMessage);
+                            }
+                            
+                            const { id: transcriptId } = await transcribeResponse.json();
+                            console.log('✅ Transcription started, ID:', transcriptId);
+                            
+                            // Poll for completion (loading indicator will be hidden when complete)
+                            await this.pollTranscriptionStatus(transcriptId);
+                            
+                        } catch (error) {
+                            console.error('❌ File transcription failed:', error);
+                            alert('File transcription failed: ' + error.message);
+                            hideLoadingIndicator(); // Only hide on error
+                        }
+                        // Note: Loading indicator is hidden in pollTranscriptionStatus when transcription completes
+                    },
+                    
+                    // Poll transcription status
+                    pollTranscriptionStatus: async function(transcriptId) {
+                        const maxAttempts = 60; // 5 minutes max
+                        let attempts = 0;
+                        
+                        const poll = async () => {
+                            try {
+                                attempts++;
+                                updateLoadingStatus(`Transcribing... (${attempts}/${maxAttempts})`);
+                                
+                                const response = await fetch(`/api/assemblyai/transcript/${transcriptId}`, {
+                                    headers: {
+                                        'Authorization': `Bearer ${this.sessionToken}`
+                                    }
+                                });
+                                
+                                if (!response.ok) {
+                                    throw new Error('Failed to check transcription status');
+                                }
+                                
+                                const result = await response.json();
+                                
+                                if (result.status === 'completed') {
+                                    console.log('✅ Transcription completed');
+                                    hideLoadingIndicator(); // Hide loading indicator on completion
+                                    
+                                    // Add transcription to transcript
+                                    if (result.text) {
+                                        this.addTranscript(`[File: ${result.audio_url}] ${result.text}`);
+                                        
+                                        // Show success message
+                                        const modal = document.createElement('div');
+                                        modal.className = 'modal';
+                                        modal.style.display = 'block';
+                                        modal.innerHTML = `
+                                            <div class="modal-content">
+                                                <h3>✅ File Transcription Complete</h3>
+                                                <p>Your audio file has been successfully transcribed and added to the transcript.</p>
+                                                <div class="modal-actions">
+                                                    <button onclick="this.closest('.modal').remove()" class="btn btn-primary">Close</button>
+                                                </div>
+                                            </div>
+                                        `;
+                                        document.body.appendChild(modal);
+                                    }
+                                    
+                                    return;
+                                    
+                                } else if (result.status === 'error') {
+                                    hideLoadingIndicator(); // Hide loading indicator on error
+                                    throw new Error(result.error || 'Transcription failed');
+                                    
+                                } else if (attempts >= maxAttempts) {
+                                    hideLoadingIndicator(); // Hide loading indicator on timeout
+                                    throw new Error('Transcription timeout');
+                                    
+                                } else {
+                                    // Continue polling
+                                    setTimeout(poll, 5000);
+                                }
+                                
+                            } catch (error) {
+                                console.error('❌ Transcription polling error:', error);
+                                hideLoadingIndicator(); // Hide loading indicator on polling error
+                                alert('Transcription failed: ' + error.message);
+                            }
+                        };
+                        
+                        poll();
+                    },
+                    
+                    // Update keyterms count display
+                    updateKeytermsCount: function() {
+                        const keytermsInput = document.getElementById('keytermsInput');
+                        const keytermsCount = document.getElementById('keytermsCount');
+                        
+                        if (keytermsInput && keytermsCount) {
+                            const text = keytermsInput.value.trim();
+                            if (text) {
+                                const terms = text.split('\n').filter(term => term.trim().length > 0);
+                                const count = terms.length;
+                                
+                                // Check for terms that are too long (>6 words)
+                                const longTerms = terms.filter(term => term.trim().split(' ').length > 6);
+                                
+                                if (longTerms.length > 0) {
+                                    keytermsCount.innerHTML = `<span style="color: #dc3545;">${count} terms (${longTerms.length} too long)</span>`;
+                                } else if (count > 1000) {
+                                    keytermsCount.innerHTML = `<span style="color: #dc3545;">${count}/1000 terms (too many)</span>`;
+                                } else {
+                                    keytermsCount.innerHTML = `<span style="color: #28a745;">${count}/1000 terms</span>`;
+                                }
+                            } else {
+                                keytermsCount.innerHTML = '';
+                            }
+                        }
+                    }
+                };
+                
+                updateLoadingStatus('Loading API configuration...');
+                
+                // Load API keys from backend
+                await window.app.loadApiKeys();
+                
+                updateLoadingStatus('Initializing services...');
+                
+                // Initialize speech recognition
+                const speechAvailable = window.app.initSpeechRecognition();
+                if (speechAvailable) {
+                    console.log('✅ Web Speech API available');
+                } else {
+                    console.warn('⚠️ Web Speech API not available');
+                }
+                
+                // Initialize AssemblyAI if configured
+                const assemblyAIAvailable = await window.app.initAssemblyAI();
+                if (assemblyAIAvailable) {
+                    console.log('✅ AssemblyAI available for file upload transcription');
+                    // Keep Web Speech as primary for real-time, AssemblyAI for files
+                } else {
+                    console.log('ℹ️ AssemblyAI not available or not configured');
+                }
+                
+                updateLoadingStatus('Setting up event listeners...');
+                
+                // Set up event listeners
+                document.getElementById('startBtn').onclick = () => window.app.startRecording();
+                document.getElementById('stopBtn').onclick = () => window.app.stopRecording();
+                document.getElementById('clearBtn').onclick = () => window.app.clearTranscript();
+                document.getElementById('summarizeBtn').onclick = () => window.app.summarizeTranscript();
+                document.getElementById('translateBtn').onclick = () => window.app.translateTranscript();
+                document.getElementById('extractBtn').onclick = () => window.app.extractKeyInfo();
+                document.getElementById('exportBtn').onclick = () => window.app.exportTranscript();
+                
+                document.getElementById('configBtn').onclick = () => {
+                    document.getElementById('configModal').style.display = 'block';
+                    
+                    // Show environment variable status if available
+                    if (window.app.envStatus) {
+                        const assemblyaiEnvStatus = document.getElementById('assemblyaiEnvStatus');
+                        const geminiEnvStatus = document.getElementById('geminiEnvStatus');
+                        
+                        if (window.app.envStatus.assemblyai) {
+                            assemblyaiEnvStatus.style.display = 'block';
+                        }
+                        if (window.app.envStatus.gemini) {
+                            geminiEnvStatus.style.display = 'block';
+                        }
+                    }
+                };
+                
+                // Test configuration handler
+                document.getElementById('testConfigBtn').onclick = async function() {
+                    const statusDiv = document.getElementById('configStatus');
+                    statusDiv.style.display = 'block';
+                    statusDiv.style.background = '#d1ecf1';
+                    statusDiv.style.color = '#0c5460';
+                    statusDiv.innerHTML = '🧪 Testing connection...';
+                    
+                    try {
+                        // Test session first
+                        const sessionResponse = await fetch('/api/session/status', {
+                            headers: {
+                                'Authorization': `Bearer ${window.app.sessionToken}`
+                            }
+                        });
+                        
+                        if (sessionResponse.ok) {
+                            statusDiv.style.background = '#d4edda';
+                            statusDiv.style.color = '#155724';
+                            statusDiv.innerHTML = '✅ Session valid - Ready to save API keys';
+                        } else {
+                            throw new Error('Session validation failed');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Connection test failed:', error);
+                        statusDiv.style.background = '#f8d7da';
+                        statusDiv.style.color = '#721c24';
+                        statusDiv.innerHTML = '❌ Connection test failed: ' + error.message;
+                    }
+                };
+                
+                document.getElementById('helpBtn').onclick = () => {
+                    window.app.showHelp();
+                };
+                
+                // Keyterms functionality
+                document.getElementById('exampleKeytermsBtn').onclick = () => {
+                    const examples = [
+                        'John Smith',
+                        'Jane Doe',
+                        'cognitive behavioral therapy',
+                        'differential diagnosis',
+                        'hypertension',
+                        'Wellbutrin XL 150mg',
+                        'major depressive disorder',
+                        'generalized anxiety disorder',
+                        'therapeutic alliance',
+                        'psychosocial assessment',
+                        'GAD-7',
+                        'PHQ-9',
+                        'Citalopram 20mg',
+                        'trauma-informed care',
+                        'emotional dysregulation'
+                    ];
+                    
+                    document.getElementById('keytermsInput').value = examples.join('\n');
+                    window.app.updateKeytermsCount();
+                };
+                
+                document.getElementById('clearKeytermsBtn').onclick = () => {
+                    document.getElementById('keytermsInput').value = '';
+                    window.app.updateKeytermsCount();
+                };
+                
+                // Update keyterms count on input
+                document.getElementById('keytermsInput').addEventListener('input', () => {
+                    window.app.updateKeytermsCount();
+                });
+                
+                // Service selection handler
+                document.getElementById('serviceSelect').onchange = function() {
+                    const selectedService = this.value;
+                    const modelSelect = document.getElementById('assemblyaiModelSelect');
+                    
+                    // Show/hide model selector based on service
+                    if (selectedService === 'assemblyai-file') {
+                        modelSelect.style.display = 'inline-block';
+                    } else {
+                        modelSelect.style.display = 'none';
+                    }
+                    
+                    if (selectedService === 'auto') {
+                        // Use the best available service for real-time
+                        if (window.app.assemblyAISocket && window.app.assemblyAISocket.readyState === WebSocket.OPEN) {
+                            window.app.currentTranscriptionService = 'assemblyai-streaming';
+                        } else if (window.app.recognition) {
+                            window.app.currentTranscriptionService = 'webspeech';
+                        } else {
+                            window.app.currentTranscriptionService = 'webspeech';
+                        }
+                    } else if (selectedService === 'assemblyai-streaming') {
+                        window.app.currentTranscriptionService = 'assemblyai-streaming';
+                    } else if (selectedService === 'assemblyai-file') {
+                        window.app.currentTranscriptionService = 'assemblyai-file';
+                    } else if (selectedService === 'webspeech') {
+                        window.app.currentTranscriptionService = 'webspeech';
+                    }
+                    
+                    // Update status display based on selected service
+                    let statusText = 'Ready';
+                    
+                    switch (selectedService) {
+                        case 'assemblyai-streaming':
+                            if (window.app.apiKeys.assemblyai) {
+                                statusText = window.app.assemblyAISocket ? 'AssemblyAI Streaming Ready' : 'AssemblyAI Streaming (Connecting...)';
+                            } else {
+                                statusText = 'AssemblyAI Streaming (Configure API Key)';
+                            }
+                            break;
+                            
+                        case 'assemblyai-file':
+                            const selectedModel = document.getElementById('assemblyaiModelSelect').value;
+                            const modelName = selectedModel === 'slam-1' ? 'Slam-1 (English)' : 'Universal (Multi-lang)';
+                            if (window.app.apiKeys.assemblyai) {
+                                statusText = `AssemblyAI File Upload - ${modelName}`;
+                            } else {
+                                statusText = 'AssemblyAI File (Configure API Key)';
+                            }
+                            break;
+                            
+                        case 'webspeech':
+                            statusText = window.app.recognition ? 'Web Speech Ready' : 'Web Speech (Not Available)';
+                            break;
+                            
+                        case 'auto':
+                        default:
+                            if (window.app.assemblyAISocket && window.app.apiKeys.assemblyai) {
+                                statusText = 'AssemblyAI Streaming + File Upload';
+                            } else if (window.app.apiKeys.assemblyai && window.app.recognition) {
+                                statusText = 'Web Speech + AssemblyAI Files';
+                            } else if (window.app.recognition) {
+                                statusText = 'Web Speech Ready';
+                            } else {
+                                statusText = 'File Upload Only';
+                            }
+                            break;
+                    }
+                    
+                    document.getElementById('serviceStatus').textContent = statusText;
+                    console.log('🔧 Service changed to:', window.app.currentTranscriptionService);
+                };
+                
+                // AssemblyAI model selection handler
+                document.getElementById('assemblyaiModelSelect').onchange = function() {
+                    const selectedModel = this.value;
+                    const modelName = selectedModel === 'slam-1' ? 'Slam-1 (English)' : 'Universal (Multi-lang)';
+                    const modelInfo = document.getElementById('modelInfo');
+                    const modelDescription = document.getElementById('modelDescription');
+                    const keytermsPanel = document.getElementById('keytermsPanel');
+                    
+                    // Update status
+                    if (window.app.apiKeys.assemblyai) {
+                        document.getElementById('serviceStatus').textContent = `AssemblyAI File Upload - ${modelName}`;
+                    }
+                    
+                    // Show/hide keyterms panel based on model
+                    if (selectedModel === 'slam-1') {
+                        keytermsPanel.style.display = 'block';
+                        modelDescription.innerHTML = `
+                            <strong>Slam-1 Model:</strong><br>
+                            • English language only<br>
+                            • Highest accuracy for English content<br>
+                            • <strong>Key Terms Enhancement:</strong> Provide domain-specific terms for better accuracy<br>
+                            • Best for: Professional meetings, medical/legal transcription<br>
+                            • Advanced: Contextual understanding with LLM architecture
+                        `;
+                    } else {
+                        keytermsPanel.style.display = 'none';
+                        modelDescription.innerHTML = `
+                            <strong>Universal Model:</strong><br>
+                            • Multi-language support (100+ languages)<br>
+                            • Good accuracy across all languages<br>
+                            • Best for: International meetings, multilingual content<br>
+                            • Supports: Automatic language detection
+                        `;
+                    }
+                    
+                    modelInfo.style.display = 'block';
+                    console.log('🔧 AssemblyAI model changed to:', selectedModel);
+                };
+                
+                // Show model info when file upload service is selected
+                document.getElementById('serviceSelect').addEventListener('change', function() {
+                    const modelInfo = document.getElementById('modelInfo');
+                    const keytermsPanel = document.getElementById('keytermsPanel');
+                    
+                    if (this.value === 'assemblyai-file') {
+                        // Trigger model info display
+                        document.getElementById('assemblyaiModelSelect').dispatchEvent(new Event('change'));
+                    } else {
+                        modelInfo.style.display = 'none';
+                        keytermsPanel.style.display = 'none';
+                    }
+                });
+                
+                // Language selection handler
+                document.getElementById('languageSelect').onchange = function() {
+                    if (window.app.recognition) {
+                        window.app.recognition.lang = this.value;
+                        console.log('🌐 Language changed to:', this.value);
+                    }
+                };
+                
+                // File upload handler
+                document.getElementById('uploadBtn').onclick = () => {
+                    document.getElementById('fileUpload').click();
+                };
+                
+                document.getElementById('fileUpload').onchange = async function(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        console.log('📁 File selected:', file.name);
+                        await window.app.uploadAndTranscribeFile(file);
+                    }
+                };
+                
+                // Configuration save handler
+                document.getElementById('saveConfigBtn').onclick = async function() {
+                    const assemblyaiKey = document.getElementById('assemblyaiKey').value.trim();
+                    const geminiKey = document.getElementById('geminiKey').value.trim();
+                    
+                    if (!assemblyaiKey && !geminiKey) {
+                        alert('Please enter at least one API key');
+                        return;
+                    }
+                    
+                    try {
+                        console.log('💾 Saving configuration...');
+                        
+                        const requestBody = {};
+                        if (assemblyaiKey) requestBody.assemblyai_key = assemblyaiKey;
+                        if (geminiKey) requestBody.gemini_key = geminiKey;
+                        
+                        const response = await fetch('/api/config', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${window.app.sessionToken}`
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            console.log('✅ Configuration saved:', result);
+                            
+                            // Update local API key status
+                            window.app.apiKeys.assemblyai = result.assemblyai_configured;
+                            window.app.apiKeys.gemini = result.gemini_configured;
+                            
+                            alert('Configuration saved successfully!');
+                            closeModal();
+                            
+                            // Reinitialize services if AssemblyAI was configured
+                            if (result.assemblyai_configured && !window.app.assemblyAISocket) {
+                                console.log('🔄 Reinitializing AssemblyAI...');
+                                await window.app.initAssemblyAI();
+                            }
+                            
+                        } else {
+                            console.error('❌ Config save failed:', response.status, response.statusText);
+                            const errorText = await response.text();
+                            console.error('Error details:', errorText);
+                            
+                            let errorMessage = 'Failed to save configuration';
+                            try {
+                                const errorData = JSON.parse(errorText);
+                                errorMessage = errorData.error || errorMessage;
+                            } catch (e) {
+                                // Use default message if JSON parsing fails
+                            }
+                            
+                            alert(errorMessage);
+                        }
+                    } catch (error) {
+                        console.error('Config save error:', error);
+                        alert('Failed to save configuration: ' + error.message);
+                    }
+                };
+                
+                updateLoadingStatus('Application ready!');
+                
+                // Test session token
+                console.log('🧪 Testing session token validity...');
+                try {
+                    const testResponse = await fetch('/api/session/status', {
+                        headers: {
+                            'Authorization': `Bearer ${window.app.sessionToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    console.log('🧪 Session test result:', testResponse.status, testResponse.ok);
+                    
+                    if (testResponse.ok) {
+                        const sessionData = await testResponse.json();
+                        console.log('✅ Session is valid:', sessionData);
+                    } else {
+                        const errorText = await testResponse.text();
+                        console.error('❌ Session validation failed:', errorText);
+                        
+                        // If session is invalid, create a new one
+                        console.log('🔄 Creating new session...');
+                        const newSessionResponse = await fetch('/api/session', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        if (newSessionResponse.ok) {
+                            const newSessionData = await newSessionResponse.json();
+                            window.app.sessionToken = newSessionData.token;
+                            console.log('✅ New session created:', newSessionData.token);
+                        }
+                    }
+                } catch (error) {
+                    console.error('🧪 Session test failed:', error);
+                }
+                
+                // Hide loading indicator and show final status
+                setTimeout(() => {
+                    hideLoadingIndicator();
+                    
+                    // Determine the best available service and show appropriate status
+                    if (window.app.apiKeys.assemblyai && speechAvailable) {
+                        document.getElementById('status').textContent = 'Ready';
+                        document.getElementById('serviceStatus').textContent = 'Web Speech + AssemblyAI Files';
+                        console.log('✅ Web Speech + AssemblyAI file upload ready');
+                        
+                        // Show info banner for hybrid mode
+                        const banner = document.createElement('div');
+                        banner.className = 'error-banner';
+                        banner.style.background = '#d1ecf1';
+                        banner.style.color = '#0c5460';
+                        banner.innerHTML = `
+                            <strong>🎤 Hybrid Mode</strong> - Web Speech for real-time, AssemblyAI for file uploads.
+                            <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; color: inherit; cursor: pointer; font-size: 18px;">×</button>
+                        `;
+                        document.body.insertBefore(banner, document.body.firstChild);
+                        
+                    } else if (speechAvailable) {
+                        document.getElementById('status').textContent = 'Ready';
+                        document.getElementById('serviceStatus').textContent = 'Web Speech Ready';
+                        console.log('✅ Web Speech API ready');
+                        
+                        // Show info banner for Web Speech
+                        const banner = document.createElement('div');
+                        banner.className = 'error-banner';
+                        banner.style.background = '#d1ecf1';
+                        banner.style.color = '#0c5460';
+                        banner.innerHTML = `
+                            <strong>🎤 Web Speech Active</strong> - Configure AssemblyAI in Settings for advanced features.
+                            <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; color: inherit; cursor: pointer; font-size: 18px;">×</button>
+                        `;
+                        document.body.insertBefore(banner, document.body.firstChild);
+                        
+                    } else {
+                        document.getElementById('status').textContent = 'Ready (Limited)';
+                        document.getElementById('serviceStatus').textContent = 'File Upload Only';
+                        
+                        // Show limited mode banner
+                        const banner = document.createElement('div');
+                        banner.className = 'error-banner';
+                        banner.style.background = 'linear-gradient(135deg, #f39c12, #e67e22)';
+                        banner.style.color = 'white';
+                        banner.innerHTML = `
+                            <strong>⚠️ Limited Mode</strong> - Speech recognition not available. Use file upload for transcription or try a supported browser.
+                            <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; color: inherit; cursor: pointer; font-size: 18px;">×</button>
+                        `;
+                        document.body.insertBefore(banner, document.body.firstChild);
+                    }
+                }, 500);
+                
+                console.log('✅ Application initialized successfully');
+                
+            } catch (error) {
+                console.error('❌ Application initialization failed:', error);
+                updateLoadingStatus('Initialization failed - loading basic interface...');
+                
+                setTimeout(() => {
+                    hideLoadingIndicator();
+                    showErrorBanner('Application failed to initialize - basic interface loaded');
+                }, 1000);
+            }
+        }
+        
+        // Modal functions
+        function closeModal() {
+            document.getElementById('configModal').style.display = 'none';
+        }
+        
+        // Add missing button event handlers
+        function setupActionButtons() {
+            // Extract Key Info button
+            document.getElementById('extractBtn').onclick = async function() {
+                if (window.app.transcript.length === 0) {
+                    alert('No transcript available for key information extraction.');
+                    return;
+                }
+                
+                try {
+                    document.getElementById('status').textContent = 'Extracting key information...';
+                    
+                    const transcriptText = window.app.transcript.map(entry => entry.text).join(' ');
+                    
+                    const response = await fetch('/api/gemini/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${window.app.sessionToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: 'gemini-2.0-flash-exp',
+                            request_body: {
+                                contents: [{
+                                    parts: [{ 
+                                        text: `Extract key information from this meeting transcript. Provide:
+1. Main topics discussed
+2. Key decisions made
+3. Action items and assignments
+4. Important dates/deadlines mentioned
+5. Key participants and their roles
+
+Transcript:
+${transcriptText}
+
+Key Information:` 
+                                    }]
+                                }],
+                                generationConfig: {
+                                    temperature: 0.3,
+                                    topK: 40,
+                                    topP: 0.95,
+                                    maxOutputTokens: 1024
+                                }
+                            }
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const keyInfo = data.candidates[0].content.parts[0].text;
+                        
+                        // Display key information in a modal
+                        showResultModal('Key Information Extracted', keyInfo, 'key-info');
+                        document.getElementById('status').textContent = 'Ready';
+                    } else {
+                        throw new Error('Failed to extract key information');
+                    }
+                } catch (error) {
+                    console.error('Key info extraction error:', error);
+                    alert('Failed to extract key information. Please check your Gemini API configuration.');
+                    document.getElementById('status').textContent = 'Ready';
+                }
+            };
+            
+            // Translate button
+            document.getElementById('translateBtn').onclick = async function() {
+                if (window.app.transcript.length === 0) {
+                    alert('No transcript available for translation.');
+                    return;
+                }
+                
+                const targetLanguage = prompt('Enter target language (e.g., Spanish, French, German, Japanese, etc.):');
+                if (!targetLanguage) return;
+                
+                try {
+                    document.getElementById('status').textContent = 'Translating transcript...';
+                    
+                    const transcriptText = window.app.transcript.map(entry => entry.text).join(' ');
+                    
+                    const response = await fetch('/api/gemini/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${window.app.sessionToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: 'gemini-2.0-flash-exp',
+                            request_body: {
+                                contents: [{
+                                    parts: [{ 
+                                        text: `Translate the following meeting transcript to ${targetLanguage}. Maintain the structure and context:
+
+${transcriptText}
+
+Translation:` 
+                                    }]
+                                }],
+                                generationConfig: {
+                                    temperature: 0.3,
+                                    topK: 40,
+                                    topP: 0.95,
+                                    maxOutputTokens: 2048
+                                }
+                            }
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const translation = data.candidates[0].content.parts[0].text;
+                        
+                        // Display translation in a modal
+                        showResultModal(`Translation (${targetLanguage})`, translation, 'translation');
+                        document.getElementById('status').textContent = 'Ready';
+                    } else {
+                        throw new Error('Failed to translate transcript');
+                    }
+                } catch (error) {
+                    console.error('Translation error:', error);
+                    alert('Failed to translate transcript. Please check your Gemini API configuration.');
+                    document.getElementById('status').textContent = 'Ready';
+                }
+            };
+            
+            // Summarize button
+            document.getElementById('summarizeBtn').onclick = async function() {
+                if (window.app.transcript.length === 0) {
+                    alert('No transcript available for summarization.');
+                    return;
+                }
+                
+                try {
+                    document.getElementById('status').textContent = 'Generating summary...';
+                    
+                    const transcriptText = window.app.transcript.map(entry => entry.text).join(' ');
+                    
+                    const response = await fetch('/api/gemini/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${window.app.sessionToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: 'gemini-2.0-flash-exp',
+                            request_body: {
+                                contents: [{
+                                    parts: [{ 
+                                        text: `Provide a comprehensive summary of this meeting transcript. Include:
+1. Main topics and themes
+2. Key decisions and outcomes
+3. Action items and next steps
+4. Important insights or conclusions
+
+Transcript:
+${transcriptText}
+
+Summary:` 
+                                    }]
+                                }],
+                                generationConfig: {
+                                    temperature: 0.4,
+                                    topK: 40,
+                                    topP: 0.95,
+                                    maxOutputTokens: 1024
+                                }
+                            }
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const summary = data.candidates[0].content.parts[0].text;
+                        
+                        // Display summary in a modal
+                        showResultModal('Meeting Summary', summary, 'summary');
+                        document.getElementById('status').textContent = 'Ready';
+                    } else {
+                        throw new Error('Failed to generate summary');
+                    }
+                } catch (error) {
+                    console.error('Summary error:', error);
+                    alert('Failed to generate summary. Please check your Gemini API configuration.');
+                    document.getElementById('status').textContent = 'Ready';
+                }
+            };
+            
+            // Enhanced Export button with multiple formats
+            document.getElementById('exportBtn').onclick = function() {
+                if (window.app.transcript.length === 0) {
+                    alert('No transcript available for export.');
+                    return;
+                }
+                
+                const format = prompt('Choose export format:\n1. TXT (Plain text)\n2. JSON (Structured data)\n3. CSV (Spreadsheet)\n4. HTML (Web page)\n\nEnter 1, 2, 3, or 4:');
+                
+                switch (format) {
+                    case '1':
+                        exportAsText();
+                        break;
+                    case '2':
+                        exportAsJSON();
+                        break;
+                    case '3':
+                        exportAsCSV();
+                        break;
+                    case '4':
+                        exportAsHTML();
+                        break;
+                    default:
+                        alert('Invalid format selected. Please choose 1, 2, 3, or 4.');
+                }
+            };
+            
+            // Clear button
+            document.getElementById('clearBtn').onclick = function() {
+                if (confirm('Are you sure you want to clear the transcript?')) {
+                    window.app.transcript = [];
+                    document.getElementById('transcript').innerHTML = '';
+                    document.getElementById('interim').textContent = '';
+                    console.log('🗑️ Transcript cleared');
+                }
+            };
+        }
+        
+        // Export functions
+        function exportAsText() {
+            const content = window.app.transcript.map(entry => {
+                const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+                return `[${timestamp}] ${entry.text}`;
+            }).join('\n\n');
+            
+            downloadFile(content, 'transcript.txt', 'text/plain');
+        }
+        
+        function exportAsJSON() {
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                transcript: window.app.transcript,
+                summary: document.getElementById('summaryResult')?.textContent || null,
+                translation: document.getElementById('translationResult')?.textContent || null,
+                keyInfo: document.getElementById('keyInfoResult')?.textContent || null
+            };
+            
+            const content = JSON.stringify(exportData, null, 2);
+            downloadFile(content, 'transcript.json', 'application/json');
+        }
+        
+        function exportAsCSV() {
+            const headers = 'Timestamp,Speaker,Text,Confidence\n';
+            const rows = window.app.transcript.map(entry => {
+                const timestamp = new Date(entry.timestamp).toLocaleString();
+                const speaker = entry.speaker || 'Speaker';
+                const text = `"${entry.text.replace(/"/g, '""')}"`;
+                const confidence = entry.confidence || 1.0;
+                return `${timestamp},${speaker},${text},${confidence}`;
+            }).join('\n');
+            
+            const content = headers + rows;
+            downloadFile(content, 'transcript.csv', 'text/csv');
+        }
+        
+        function exportAsHTML() {
+            const title = `Meeting Transcript - ${new Date().toLocaleDateString()}`;
+            const transcriptHTML = window.app.transcript.map(entry => {
+                const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+                const speaker = entry.speaker || 'Speaker';
+                return `
+                    <div class="transcript-entry">
+                        <span class="timestamp">[${timestamp}]</span>
+                        <span class="speaker">${speaker}:</span>
+                        <span class="text">${entry.text}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            const content = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .transcript-entry { margin: 15px 0; padding: 10px; border-left: 3px solid #007bff; }
+        .timestamp { color: #007bff; font-weight: bold; margin-right: 10px; }
+        .speaker { font-weight: bold; margin-right: 10px; }
+        .text { line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <h1>${title}</h1>
+    <div class="transcript">
+        ${transcriptHTML}
+    </div>
+</body>
+</html>
+            `;
+            
+            downloadFile(content, 'transcript.html', 'text/html');
+        }
+        
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log(`📁 Exported as ${filename}`);
+        }
+        
+        // Result modal function
+        function showResultModal(title, content, type) {
+            // Remove existing result modal if any
+            const existingModal = document.getElementById('resultModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Create new modal
+            const modal = document.createElement('div');
+            modal.id = 'resultModal';
+            modal.className = 'modal';
+            modal.style.display = 'block';
+            
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                    <h3>${title}</h3>
+                    <div id="${type}Result" class="result-content" style="white-space: pre-wrap; line-height: 1.6; margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+                        ${content}
+                    </div>
+                    <div class="modal-actions">
+                        <button onclick="copyToClipboard('${type}Result')" class="btn btn-outline">📋 Copy</button>
+                        <button onclick="exportResult('${type}', '${title}')" class="btn btn-outline">💾 Export</button>
+                        <button onclick="closeResultModal()" class="btn btn-secondary">Close</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        function closeResultModal() {
+            const modal = document.getElementById('resultModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                navigator.clipboard.writeText(element.textContent).then(() => {
+                    alert('Content copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    alert('Failed to copy to clipboard');
+                });
+            }
+        }
+        
+        function exportResult(type, title) {
+            const element = document.getElementById(`${type}Result`);
+            if (element) {
+                const content = element.textContent;
+                const filename = `${type}-${new Date().toISOString().split('T')[0]}.txt`;
+                downloadFile(content, filename, 'text/plain');
+            }
+        }
+        
+        // Start initialization immediately
+        updateLoadingStatus('Starting initialization...');
+        setTimeout(() => {
+            initializeApp().then(() => {
+                // Setup action buttons after app initialization
+                setupActionButtons();
+            });
+        }, 100);
+        
+        // Failsafe - always hide loading indicator after 10 seconds
+        setTimeout(() => {
+            if (document.getElementById('loadingIndicator').style.display !== 'none') {
+                console.warn('🚨 Failsafe: Force hiding loading indicator');
+                hideLoadingIndicator();
+                showErrorBanner('Application took too long to load - basic interface shown');
+            }
+        }, 10000);
+    </script>
+</body>
+</html>
