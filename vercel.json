@@ -1,14 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "app.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
-    }
-  ],
   "routes": [
     {
       "src": "/(.*)",
@@ -21,10 +12,14 @@
   },
   "functions": {
     "app.py": {
+      "runtime": "@vercel/python",
+      "maxDuration": 30,
       "includeFiles": [
         "templates/**",
         "static/**",
-        "app/**"
+        "app/**",
+        "services/**",
+        "requirements.txt"
       ]
     }
   }
