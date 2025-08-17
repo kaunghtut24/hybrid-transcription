@@ -4,6 +4,7 @@ Main application routes (non-API)
 
 from flask import Blueprint, render_template, send_from_directory
 from app.performance import lazy_init_performance_optimizer
+from app.auth import require_session
 
 main_bp = Blueprint('main', __name__)
 
@@ -19,6 +20,11 @@ def index():
 def index_original():
     """Serve the original version of the main application"""
     return render_template('index.html')
+
+@main_bp.route('/speaker-diarization')
+def speaker_diarization():
+    """Speaker Diarization with Async Chunking feature page"""
+    return render_template('speaker_diarization.html')
 
 @main_bp.route('/static/<path:filename>')
 def static_files(filename):

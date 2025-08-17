@@ -9,4 +9,9 @@ Werkzeug==2.3.7
 assemblyai>=0.30.0
 flask-socketio==5.3.6
 websocket-client==1.6.4
-python-magic==0.4.27
+pydub==0.25.1
+numpy>=1.24.3
+scipy>=1.10.0
+torch>=1.13.0
+# Optional: Enhanced speaker diarization (requires additional setup)
+# nemo-toolkit[all]==1.22.0

@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speaker Diarization - AI Meeting Transcription</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #0056b3;
+            background-color: #f8f9fa;
+        }
+        
+        .upload-area.dragover {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+        
+        .file-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .progress-container {
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .speaker-result {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .transcript-line {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            border-left: 4px solid #007bff;
+        }
+        
+        .speaker-label {
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .nemo-badge {
+            background: linear-gradient(45deg, #76ff03, #4caf50);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+        }
+        
+        .feature-highlight {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="/">
+                    <i class="fas fa-microphone me-2"></i>
+                    AI Meeting Transcription
+                </a>
+                <span class="navbar-text">
+                    <i class="fas fa-users me-1"></i>
+                    Speaker Diarization with Async Chunking
+                </span>
+            </div>
+        </nav>
+
+        <div class="container mt-4">
+            <!-- Feature Introduction -->
+            <div class="feature-highlight">
+                <h2><i class="fas fa-magic me-2"></i>Advanced Speaker Diarization</h2>
+                <p class="mb-0">
+                    Upload multiple audio clips and our AI will identify which speakers are the same across different recordings.
+                    Using AssemblyAI's transcription and Nvidia's NeMo TitaNet model for voice embedding comparison.
+                </p>
+            </div>
+
+            <!-- Service Status Check -->
+            <div id="serviceStatus" class="alert alert-info">
+                <i class="fas fa-spinner fa-spin me-2"></i>
+                Checking speaker diarization service availability...
+            </div>
+
+            <!-- Upload Section -->
+            <div id="uploadSection" class="card mb-4" style="display: none;">
+                <div class="card-header">
+                    <h5><i class="fas fa-upload me-2"></i>Upload Audio Clips</h5>
+                </div>
+                <div class="card-body">
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                        <h5>Drop audio files here or click to browse</h5>
+                        <p class="text-muted">
+                            Supported formats: WAV, MP3, M4A, FLAC<br>
+                            Maximum 10 clips, 100MB per file
+                        </p>
+                        <input type="file" id="fileInput" multiple accept=".wav,.mp3,.m4a,.flac" style="display: none;">
+                    </div>
+                    
+                    <!-- Selected Files -->
+                    <div id="selectedFiles" class="mt-3"></div>
+                    
+                    <!-- Process Button -->
+                    <div class="text-center mt-3">
+                        <button id="processBtn" class="btn btn-primary btn-lg" disabled>
+                            <i class="fas fa-play me-2"></i>
+                            Start Speaker Diarization
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div id="progressSection" class="progress-container" style="display: none;">
+                <h5><i class="fas fa-cogs me-2"></i>Processing Status</h5>
+                <div class="progress mb-3">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%">0%</div>
+                </div>
+                <div id="progressMessage" class="text-center">
+                    <i class="fas fa-hourglass-start me-2"></i>Initializing...
+                </div>
+                <div id="progressDetails" class="mt-3"></div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" style="display: none;">
+                <!-- Summary Stats -->
+                <div class="row" id="summaryStats"></div>
+                
+                <!-- Speaker Information -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-users me-2"></i>Identified Speakers</h5>
+                    </div>
+                    <div class="card-body" id="speakerInfo">
+                        <!-- Speaker data will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Transcript Display -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-file-alt me-2"></i>Complete Transcript</h5>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm" onclick="exportResults('text')">
+                                <i class="fas fa-download me-1"></i>Text
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" onclick="exportResults('csv')">
+                                <i class="fas fa-table me-1"></i>CSV
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" onclick="exportResults('json')">
+                                <i class="fas fa-code me-1"></i>JSON
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="transcriptDisplay">
+                            <!-- Transcript will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Section -->
+            <div id="errorSection" class="alert alert-danger" style="display: none;">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>Error</h5>
+                <div id="errorMessage"></div>
+                <div id="errorTroubleshooting" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Global variables
+        let selectedFiles = [];
+        let currentSessionId = null;
+        let progressInterval = null;
+        let authToken = null;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSession();
+        });
+
+        // Initialize session and authentication
+        async function initializeSession() {
+            try {
+                const response = await fetch('/api/session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.token) {
+                    authToken = data.token;
+                    console.log('Session initialized successfully');
+                    checkServiceStatus();
+                    setupFileUpload();
+                } else {
+                    throw new Error('Failed to create session');
+                }
+                
+            } catch (error) {
+                console.error('Failed to initialize session:', error);
+                showError('Failed to initialize session. Please refresh the page.');
+            }
+        }
+
+        // Helper function to make authenticated API calls
+        async function authenticatedFetch(url, options = {}) {
+            const headers = {
+                ...options.headers
+            };
+            
+            // Only set Content-Type for non-FormData requests
+            if (!options.body || !(options.body instanceof FormData)) {
+                headers['Content-Type'] = 'application/json';
+            }
+            
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            return fetch(url, {
+                ...options,
+                headers
+            });
+        }
+
+        // Check if speaker diarization service is available
+        async function checkServiceStatus() {
+            try {
+                const response = await fetch('/api/speaker-diarization/info');
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('serviceStatus');
+                
+                if (data.available) {
+                    statusDiv.className = 'alert alert-success';
+                    statusDiv.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Service Ready!</strong> Speaker diarization is available.
+                        ${data.dependencies.nemo_toolkit ? 
+                            '<span class="nemo-badge ms-2">NeMo Enhanced</span>' : 
+                            '<small class="text-muted ms-2">(Basic mode - install NeMo for enhanced accuracy)</small>'
+                        }
+                    `;
+                    document.getElementById('uploadSection').style.display = 'block';
+                } else {
+                    statusDiv.className = 'alert alert-warning';
+                    statusDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Service Unavailable:</strong> ${data.error || 'Speaker diarization service is not available'}
+                        <br><small>Missing dependencies: ${data.missing_dependencies?.join(', ') || 'Unknown'}</small>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error checking service status:', error);
+                document.getElementById('serviceStatus').innerHTML = `
+                    <i class="fas fa-times-circle me-2"></i>
+                    <strong>Connection Error:</strong> Could not check service status
+                `;
+            }
+        }
+
+        // Setup file upload functionality
+        function setupFileUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            
+            // Click to browse
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            // File selection
+            fileInput.addEventListener('change', handleFileSelection);
+            
+            // Drag and drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                addFiles(files);
+            });
+            
+            // Process button
+            document.getElementById('processBtn').addEventListener('click', startProcessing);
+        }
+
+        // Handle file selection
+        function handleFileSelection(event) {
+            const files = Array.from(event.target.files);
+            addFiles(files);
+        }
+
+        // Add files to selection
+        function addFiles(files) {
+            const validFiles = files.filter(file => {
+                const validTypes = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/flac', 'audio/ogg'];
+                const validExtensions = ['.wav', '.mp3', '.m4a', '.flac', '.ogg'];
+                
+                return validTypes.includes(file.type) || 
+                       validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+            });
+            
+            if (validFiles.length !== files.length) {
+                showError('Some files were skipped because they are not supported audio formats.');
+            }
+            
+            // Check file count limit
+            if (selectedFiles.length + validFiles.length > 10) {
+                showError('Maximum 10 audio clips allowed. Please remove some files.');
+                return;
+            }
+            
+            // Check file size limit
+            const oversizedFiles = validFiles.filter(file => file.size > 100 * 1024 * 1024);
+            if (oversizedFiles.length > 0) {
+                showError(`Files too large: ${oversizedFiles.map(f => f.name).join(', ')}. Maximum 100MB per file.`);
+                return;
+            }
+            
+            // Add valid files
+            selectedFiles.push(...validFiles);
+            updateFileDisplay();
+            updateProcessButton();
+        }
+
+        // Update file display
+        function updateFileDisplay() {
+            const container = document.getElementById('selectedFiles');
+            
+            if (selectedFiles.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            container.innerHTML = `
+                <h6><i class="fas fa-list me-2"></i>Selected Files (${selectedFiles.length})</h6>
+                ${selectedFiles.map((file, index) => `
+                    <div class="file-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-file-audio me-2 text-primary"></i>
+                            <strong>${file.name}</strong>
+                            <small class="text-muted ms-2">(${(file.size / (1024*1024)).toFixed(1)} MB)</small>
+                        </div>
+                        <button class="btn btn-outline-danger btn-sm" onclick="removeFile(${index})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        // Remove file from selection
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFileDisplay();
+            updateProcessButton();
+        }
+
+        // Update process button state
+        function updateProcessButton() {
+            const btn = document.getElementById('processBtn');
+            btn.disabled = selectedFiles.length < 2;
+            
+            if (selectedFiles.length < 2) {
+                btn.innerHTML = '<i class="fas fa-info-circle me-2"></i>Need at least 2 audio clips';
+            } else {
+                btn.innerHTML = `<i class="fas fa-play me-2"></i>Start Speaker Diarization (${selectedFiles.length} clips)`;
+            }
+        }
+
+        // Start processing
+        async function startProcessing() {
+            hideError();
+            
+            // Upload files first
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+            
+            try {
+                // Show progress
+                document.getElementById('progressSection').style.display = 'block';
+                updateProgress(0, 'uploading', 'Uploading audio files...');
+                
+                // Upload files
+                const uploadResponse = await authenticatedFetch('/api/speaker-diarization/upload-chunks', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const uploadData = await uploadResponse.json();
+                
+                if (!uploadData.success) {
+                    throw new Error(uploadData.error || 'Upload failed');
+                }
+                
+                currentSessionId = uploadData.session_id;
+                updateProgress(10, 'uploaded', `Files uploaded successfully! Processing ${uploadData.files_uploaded} clips...`);
+                
+                // Start processing
+                const processResponse = await authenticatedFetch(`/api/speaker-diarization/process/${currentSessionId}`, {
+                    method: 'POST'
+                });
+                
+                const processData = await processResponse.json();
+                
+                if (!processData.success) {
+                    throw new Error(processData.error || 'Processing failed to start');
+                }
+                
+                // Start polling for progress
+                startProgressPolling();
+                
+            } catch (error) {
+                console.error('Processing error:', error);
+                showError(`Processing failed: ${error.message}`);
+                document.getElementById('progressSection').style.display = 'none';
+            }
+        }
+
+        // Start polling for progress updates
+        function startProgressPolling() {
+            progressInterval = setInterval(async () => {
+                try {
+                    const response = await authenticatedFetch(`/api/speaker-diarization/status/${currentSessionId}`);
+                    const data = await response.json();
+                    
+                    updateProgress(
+                        data.progress, 
+                        data.current_stage, 
+                        data.current_message || 'Processing...'
+                    );
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(progressInterval);
+                        showResults(data);
+                    } else if (data.status === 'error') {
+                        clearInterval(progressInterval);
+                        showError(data.error || 'Processing failed', data.troubleshooting);
+                    }
+                    
+                } catch (error) {
+                    console.error('Progress polling error:', error);
+                }
+            }, 2000); // Poll every 2 seconds
+        }
+
+        // Update progress display
+        function updateProgress(percentage, stage, message) {
+            const progressBar = document.getElementById('progressBar');
+            const progressMessage = document.getElementById('progressMessage');
+            
+            progressBar.style.width = `${percentage}%`;
+            progressBar.textContent = `${Math.round(percentage)}%`;
+            progressMessage.innerHTML = `<i class="fas fa-cogs me-2"></i>${message}`;
+            
+            // Add stage-specific icons
+            const stageIcons = {
+                'uploading': 'fa-upload',
+                'transcribing': 'fa-microphone',
+                'speaker_diarization': 'fa-users',
+                'finalizing': 'fa-check-circle'
+            };
+            
+            const icon = stageIcons[stage] || 'fa-cogs';
+            progressMessage.innerHTML = `<i class="fas ${icon} me-2"></i>${message}`;
+        }
+
+        // Show results
+        async function showResults(statusData) {
+            document.getElementById('progressSection').style.display = 'none';
+            
+            try {
+                // Get detailed results
+                const response = await authenticatedFetch(`/api/speaker-diarization/results/${currentSessionId}`);
+                const data = await response.json();
+                
+                if (!data.results) {
+                    throw new Error('No results available');
+                }
+                
+                const results = data.results;
+                
+                // Show summary stats
+                displaySummaryStats(results.summary);
+                
+                // Show speaker information
+                displaySpeakerInfo(results.speakers);
+                
+                // Show transcript
+                displayTranscript(results.transcript);
+                
+                document.getElementById('resultsSection').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading results:', error);
+                showError(`Failed to load results: ${error.message}`);
+            }
+        }
+
+        // Display summary statistics
+        function displaySummaryStats(summary) {
+            const container = document.getElementById('summaryStats');
+            
+            container.innerHTML = `
+                <div class="col-md-3">
+                    <div class="stats-card text-center">
+                        <h3>${summary.unique_speakers_found}</h3>
+                        <small>Unique Speakers</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card text-center">
+                        <h3>${summary.total_clips_processed}</h3>
+                        <small>Clips Processed</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card text-center">
+                        <h3>${summary.nemo_used ? 'Enhanced' : 'Standard'}</h3>
+                        <small>AI Model</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card text-center">
+                        <h3><i class="fas fa-check-circle"></i></h3>
+                        <small>Completed</small>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Display speaker information
+        function displaySpeakerInfo(speakers) {
+            const container = document.getElementById('speakerInfo');
+            
+            const speakerCards = speakers.unique_speakers.map(speaker => {
+                const stats = speakers.speaker_statistics;
+                const talkTime = stats.speaker_talk_time[speaker] || 0;
+                const utteranceCount = stats.speaker_utterance_count[speaker] || 0;
+                
+                return `
+                    <div class="speaker-result">
+                        <h6><i class="fas fa-user me-2"></i>Speaker ${speaker}</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small><strong>Talk Time:</strong> ${talkTime} minutes</small>
+                            </div>
+                            <div class="col-md-6">
+                                <small><strong>Utterances:</strong> ${utteranceCount}</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = speakerCards;
+        }
+
+        // Display transcript
+        function displayTranscript(transcript) {
+            const container = document.getElementById('transcriptDisplay');
+            
+            if (transcript.formatted) {
+                // Convert formatted text to HTML
+                const lines = transcript.formatted.split('\n');
+                const htmlLines = lines.map(line => {
+                    if (line.startsWith('=== Clip')) {
+                        return `<h6 class="text-primary mt-3">${line}</h6>`;
+                    } else if (line.trim() && line.includes('Speaker')) {
+                        // Parse speaker lines
+                        const match = line.match(/\[(\d+:\d+)\]\s*Speaker\s*([A-Z]):\s*(.+)/);
+                        if (match) {
+                            const [, timestamp, speaker, text] = match;
+                            return `
+                                <div class="transcript-line">
+                                    <small class="text-muted">${timestamp}</small>
+                                    <span class="speaker-label ms-2">Speaker ${speaker}:</span>
+                                    <span class="ms-2">${text}</span>
+                                </div>
+                            `;
+                        }
+                    }
+                    return line.trim() ? `<p>${line}</p>` : '';
+                }).filter(line => line).join('');
+                
+                container.innerHTML = htmlLines;
+            } else {
+                container.innerHTML = '<p class="text-muted">Transcript formatting not available</p>';
+            }
+        }
+
+        // Export results
+        async function exportResults(format) {
+            if (!currentSessionId) {
+                showError('No session available for export');
+                return;
+            }
+            
+            try {
+                const response = await authenticatedFetch(`/api/speaker-diarization/export/${currentSessionId}?format=${format}`);
+                
+                if (format === 'json') {
+                    const data = await response.json();
+                    downloadAsFile(JSON.stringify(data, null, 2), `speaker_diarization_${currentSessionId}.json`, 'application/json');
+                } else {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `speaker_diarization_${currentSessionId}.${format}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                showError(`Export failed: ${error.message}`);
+            }
+        }
+
+        // Download as file helper
+        function downloadAsFile(content, filename, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Show error
+        function showError(message, troubleshooting = null) {
+            const errorSection = document.getElementById('errorSection');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorTroubleshooting = document.getElementById('errorTroubleshooting');
+            
+            errorMessage.textContent = message;
+            
+            if (troubleshooting && Array.isArray(troubleshooting)) {
+                errorTroubleshooting.innerHTML = `
+                    <strong>Troubleshooting:</strong>
+                    <ul class="mb-0">
+                        ${troubleshooting.map(tip => `<li>${tip}</li>`).join('')}
+                    </ul>
+                `;
+            } else {
+                errorTroubleshooting.innerHTML = '';
+            }
+            
+            errorSection.style.display = 'block';
+            errorSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Hide error
+        function hideError() {
+            document.getElementById('errorSection').style.display = 'none';
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (currentSessionId) {
+                // Attempt to cleanup session (fire and forget)
+                authenticatedFetch(`/api/speaker-diarization/cleanup/${currentSessionId}`, { method: 'DELETE' });
+            }
+        });
+    </script>
+</body>
+</html>
