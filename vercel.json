@@ -12,7 +12,7 @@
   },
   "functions": {
     "app.py": {
-      "runtime": "@vercel/python",
+      "runtime": "python3.9",
       "maxDuration": 30,
       "includeFiles": "**"
     }
