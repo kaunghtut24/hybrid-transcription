@@ -281,9 +281,10 @@ templates/test.html
 templates/working_test.html
 
 # Legacy API structure (replaced by modular app/)
-api/
-functions/
-public/
+# Restrict to root-level paths so nested packages like app/routes/api are tracked
+/api/
+/functions/
+/public/
 
 # Test files
 test_*.py
