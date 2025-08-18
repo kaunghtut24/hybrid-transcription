@@ -12,9 +12,8 @@ __pycache__/
 .venv/
 venv/
 
-# Large documentation and media files
+# Large documentation files (safe to keep; do NOT exclude requirements.txt)
 *.md
-*.txt
 README*
 LICENSE*
 
