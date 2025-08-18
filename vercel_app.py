@@ -14,8 +14,14 @@ from app import create_app
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Set production environment for Vercel
+os.environ['FLASK_ENV'] = 'production'
+
 # Create the app instance
 app, socketio = create_app()
+
+# Export the Flask app for Vercel WSGI
+application = app
 
 if __name__ == '__main__':
     # Development server (not used on Vercel)

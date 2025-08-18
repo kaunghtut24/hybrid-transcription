@@ -84,7 +84,12 @@ class UnifiedWebSocketManager {
 
             this.socketio = io({
                 timeout: 10000,
-                reconnection: false
+                reconnection: false,
+                // Vercel serverless compatibility
+                transports: ['polling', 'websocket'],
+                upgrade: true,
+                forceNew: true,
+                rememberUpgrade: false
             });
 
             this.setupConnectionEventHandlers();

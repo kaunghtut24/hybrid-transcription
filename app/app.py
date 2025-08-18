@@ -37,16 +37,26 @@ def create_app(config_name=None):
     logger.info(f"CORS_ORIGINS effective: {cors_origins}")
     CORS(app, origins=cors_origins)
     
-    # Initialize SocketIO with transport configuration
+    # Initialize SocketIO with Vercel-compatible configuration
     socketio = SocketIO(
         app,
         cors_allowed_origins=cors_origins,
         logger=False,  # Reduce SocketIO logging noise
-        engineio_logger=False
+        engineio_logger=False,
+        # Vercel serverless compatibility settings
+        ping_timeout=20,
+        ping_interval=10,
+        async_mode='threading'  # Use threading for better serverless compatibility
     )
     
     # Register blueprints
     register_blueprints(app)
+    
+    # Register test endpoints for debugging
+    if app.config.get('FLASK_ENV') == 'production':
+        from .socketio_test import register_test_blueprint, register_socketio_test_handlers
+        register_test_blueprint(app)
+        register_socketio_test_handlers(socketio)
     
     # Global error handler: log full stack traces to help diagnose 500s in serverless logs
     @app.errorhandler(Exception)
@@ -64,6 +74,11 @@ def create_app(config_name=None):
 
     # Register WebSocket handlers
     register_websocket_handlers(socketio)
+    
+    # Apply serverless patches for production
+    if app.config.get('FLASK_ENV') == 'production':
+        from .serverless_patch import patch_socketio_for_serverless
+        socketio = patch_socketio_for_serverless(app, socketio)
     
     # Store socketio instance for access in other modules
     app.socketio = socketio  # type: ignore[attr-defined]

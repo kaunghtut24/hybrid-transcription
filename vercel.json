@@ -8,6 +8,10 @@
   ],
   "routes": [
     {
+      "src": "/socket.io/(.*)",
+      "dest": "vercel_app.py"
+    },
+    {
       "src": "/(.*)",
       "dest": "vercel_app.py"
     }
@@ -15,5 +19,10 @@
   "env": {
     "FLASK_ENV": "production",
     "CORS_ORIGINS": "https://ai-meetingnotes.vercel.app,https://hybrid-transcription.vercel.app"
+  },
+  "functions": {
+    "vercel_app.py": {
+      "maxDuration": 30
+    }
   }
 }

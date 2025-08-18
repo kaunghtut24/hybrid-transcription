@@ -17,14 +17,29 @@ class AssemblyAIService {
             const validation = await this.validateApiKey();
 
             if (validation.valid) {
-                this.socketio = io();
+                // Vercel-compatible Socket.IO connection
+                this.socketio = io({
+                    transports: ['polling', 'websocket'],
+                    upgrade: true,
+                    timeout: 20000,
+                    forceNew: true,
+                    reconnection: true,
+                    reconnectionAttempts: 3,
+                    reconnectionDelay: 1000
+                });
+                
                 this.sessionId = `session_${Date.now()}`;
                 this.setupSocketIOListeners();
-                this.socketio.emit('join_session', { session_id: this.sessionId });
-                this.socketio.emit('start_assemblyai_stream', {
-                    session_token: this.app.sessionToken,
-                    session_id: this.sessionId
+                
+                // Wait for connection before emitting events
+                this.socketio.on('connect', () => {
+                    this.socketio.emit('join_session', { session_id: this.sessionId });
+                    this.socketio.emit('start_assemblyai_stream', {
+                        session_token: this.app.sessionToken,
+                        session_id: this.sessionId
+                    });
                 });
+                
                 this.app.showToast('Connecting to AssemblyAI...', 'info');
             }
         } catch (error) {
