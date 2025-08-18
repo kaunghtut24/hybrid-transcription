@@ -1,17 +1,24 @@
+# Core Flask Dependencies (Fast install)
 Flask==2.3.3
 Flask-CORS==4.0.0
 PyJWT==2.8.0
 requests==2.31.0
 gunicorn==21.2.0
-eventlet==0.33.3
 python-dotenv==1.0.0
 Werkzeug==2.3.7
+
+# API & Communication (Fast install)
 assemblyai>=0.30.0
 flask-socketio==5.3.6
 websocket-client==1.6.4
+
+# Audio Processing (Moderate install time)
 pydub==0.25.1
 numpy>=1.24.3
+
+# Optional: Scientific computing (slower install, comment out if not needed)
 scipy>=1.10.0
-torch>=1.13.0
-# Optional: Enhanced speaker diarization (requires additional setup)
+
+# Optional: Heavy ML dependencies (very slow install, only for advanced features)
+# torch>=1.13.0
 # nemo-toolkit[all]==1.22.0
