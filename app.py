@@ -2,7 +2,7 @@
 """
 Flask Web Server for AI Meeting Transcription Assistant
 Entry point that uses the refactored modular application structure
-Optimized for cloud deployment platforms
+Optimized for cloud deployment platforms (v2.0)
 """
 
 import os
