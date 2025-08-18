@@ -33,13 +33,14 @@ def create_app(config_name=None):
     logger.info(f"Starting application with {config_name} configuration")
     
     # Enable CORS
-    CORS(app, origins=app.config['CORS_ORIGINS'])
+    cors_origins = app.config.get('CORS_ORIGINS', ['*'])
+    logger.info(f"CORS_ORIGINS effective: {cors_origins}")
+    CORS(app, origins=cors_origins)
     
     # Initialize SocketIO with transport configuration
     socketio = SocketIO(
-        app, 
-        cors_allowed_origins=app.config['CORS_ORIGINS'],
-        transports=['polling', 'websocket'],  # Prefer polling first
+        app,
+        cors_allowed_origins=cors_origins,
         logger=False,  # Reduce SocketIO logging noise
         engineio_logger=False
     )
@@ -51,6 +52,6 @@ def create_app(config_name=None):
     register_websocket_handlers(socketio)
     
     # Store socketio instance for access in other modules
-    app.socketio = socketio
+    app.socketio = socketio  # type: ignore[attr-defined]
     
     return app, socketio

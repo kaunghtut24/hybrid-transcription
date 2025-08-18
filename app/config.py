@@ -54,7 +54,10 @@ class ProductionConfig(Config):
     TESTING = False
     # Production CORS settings - use environment or default secure origins
     CORS_ORIGINS = get_cors_origins() if os.environ.get('CORS_ORIGINS') else [
+        # Primary Vercel deployments
         "https://ai-meetingnotes.vercel.app",
+        "https://hybrid-transcription.vercel.app",
+        # Legacy/alternate production backend
         "https://ai-meetingnotes-production.up.railway.app"
     ]
 
