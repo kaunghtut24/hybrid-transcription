@@ -83,13 +83,21 @@ class UnifiedWebSocketManager {
             this.connectionStartTime = Date.now();
 
             this.socketio = io({
-                timeout: 10000,
+                timeout: 30000,  // Increased timeout for serverless
                 reconnection: false,
-                // Vercel serverless compatibility
-                transports: ['polling', 'websocket'],
-                upgrade: true,
+                // Force polling transport for Vercel serverless compatibility
+                transports: ['polling'],  // Only use polling, no websockets
+                upgrade: false,  // Disable upgrades to websockets
                 forceNew: true,
-                rememberUpgrade: false
+                rememberUpgrade: false,
+                // Additional serverless optimizations
+                autoConnect: true,
+                forceBase64: false,
+                timestampRequests: true,
+                // Longer polling timeouts for serverless environments
+                pollingTimeout: 90000,  // 90 seconds
+                // Disable compression to reduce processing overhead
+                compression: false
             });
 
             this.setupConnectionEventHandlers();
@@ -98,7 +106,7 @@ class UnifiedWebSocketManager {
                 const connectTimeout = setTimeout(() => {
                     this.setState(this.connectionStates.FAILED);
                     reject(new Error('Connection timeout'));
-                }, 5000);
+                }, 30000);  // Increased to 30 seconds for serverless
 
                 this.socketio.once('connect', () => {
                     clearTimeout(connectTimeout);

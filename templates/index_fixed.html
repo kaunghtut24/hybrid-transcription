@@ -760,7 +760,13 @@
                     
                     // Test basic SocketIO connection with polling transport only
                     const testSocket = io({
-                        transports: ['polling']  // Use only polling to avoid WebSocket frame issues
+                        transports: ['polling'],  // Use only polling for Vercel serverless
+                        timeout: 30000,  // Increased timeout for serverless
+                        upgrade: false,  // Disable upgrades to websockets
+                        forceNew: true,
+                        rememberUpgrade: false,
+                        pollingTimeout: 90000,  // Long polling timeout for serverless
+                        compression: false  // Disable compression for better serverless performance
                     });
                     testSocket.on('connect', () => {
                         console.log('✅ SocketIO basic connection test successful');
@@ -950,14 +956,20 @@
                                 auth: {
                                     token: this.sessionToken
                                 },
-                                transports: ['polling']  // Use only polling to avoid WebSocket frame issues
+                                transports: ['polling'],  // Use only polling for Vercel serverless
+                                timeout: 30000,  // Increased timeout for serverless
+                                upgrade: false,  // Disable upgrades to websockets
+                                forceNew: true,  // Always create new connection
+                                rememberUpgrade: false,
+                                pollingTimeout: 90000,  // Long polling timeout for serverless
+                                compression: false  // Disable compression for better serverless performance
                             });
                             
                             return new Promise((resolve, reject) => {
                                 const timeout = setTimeout(() => {
                                     console.error('❌ AssemblyAI proxy connection timeout');
                                     reject(new Error('Connection timeout'));
-                                }, 10000);
+                                }, 30000);  // Increased to 30 seconds for serverless
                                 
                                 // Debug: Log connection events
                                 this.assemblyAISocket.on('connect', () => {

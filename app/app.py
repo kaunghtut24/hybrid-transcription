@@ -44,9 +44,11 @@ def create_app(config_name=None):
         logger=False,  # Reduce SocketIO logging noise
         engineio_logger=False,
         # Vercel serverless compatibility settings
-        ping_timeout=20,
-        ping_interval=10,
-        async_mode='threading'  # Use threading for better serverless compatibility
+        ping_timeout=120,  # Much longer timeout for serverless cold starts
+        ping_interval=60,  # Longer interval for serverless
+        async_mode='threading',  # Use threading for better serverless compatibility
+        # Engine.IO specific settings for serverless
+        max_http_buffer_size=10000000,  # 10MB buffer for large requests
     )
     
     # Register blueprints
@@ -82,5 +84,16 @@ def create_app(config_name=None):
     
     # Store socketio instance for access in other modules
     app.socketio = socketio  # type: ignore[attr-defined]
+    
+    # Configure client-side transport restrictions for serverless
+    @socketio.on('connect')
+    def handle_connect():
+        """Handle client connection with serverless optimizations"""
+        logger.info("Client connected to SocketIO")
+        
+    @socketio.on('disconnect')
+    def handle_disconnect():
+        """Handle client disconnection"""
+        logger.info("Client disconnected from SocketIO")
     
     return app, socketio
