@@ -1,0 +1,41 @@
+# Exclude large FFmpeg binaries from Vercel deployment
+# FFmpeg is not needed in serverless environment and exceeds size limits
+ffmpeg/
+install_ffmpeg.py
+
+# Development and local files
+.env
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+.venv/
+venv/
+
+# Large documentation and media files
+*.md
+*.txt
+README*
+LICENSE*
+
+# Test files
+test_*.py
+*_test.py
+tests/
+
+# Development tools
+.git/
+.gitignore
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
