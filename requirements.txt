@@ -3,7 +3,6 @@ Flask==2.3.3
 Flask-CORS==4.0.0
 PyJWT==2.8.0
 requests==2.31.0
-gunicorn==21.2.0
 python-dotenv==1.0.0
 Werkzeug==2.3.7
 
@@ -12,13 +11,18 @@ assemblyai>=0.30.0
 flask-socketio==5.3.6
 websocket-client==1.6.4
 
-# Audio Processing (Moderate install time)
+# Audio Processing (Minimal for Vercel size limits)
 pydub==0.25.1
+
+# Lightweight Scientific Computing
 numpy>=1.24.3
 
-# Optional: Scientific computing (slower install, comment out if not needed)
-scipy>=1.10.0
+# Production Server (Vercel handles this automatically)
+# gunicorn==21.2.0
 
-# Optional: Heavy ML dependencies (very slow install, only for advanced features)
+# Heavy Dependencies - Commented out for Vercel 250MB limit
+# scipy>=1.10.0  # Large package that may cause size issues
+
+# Optional: Advanced ML dependencies (very large, use only locally)
 # torch>=1.13.0
 # nemo-toolkit[all]==1.22.0
