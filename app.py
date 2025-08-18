@@ -7,10 +7,15 @@ Optimized for cloud deployment platforms
 
 import os
 import logging
-from dotenv import load_dotenv
 
-# Load environment variables first
-load_dotenv()
+# Load environment variables (optional for production environments)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available in production environments like Vercel
+    # Environment variables are handled by the platform
+    pass
 
 from app import create_app
 

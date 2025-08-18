@@ -3,7 +3,6 @@ Flask==2.3.3
 Flask-CORS==4.0.0
 PyJWT==2.8.0
 requests==2.31.0
-python-dotenv==1.0.0
 Werkzeug==2.3.7
 
 # API & Communication (Fast install)
@@ -17,8 +16,9 @@ pydub==0.25.1
 # Lightweight Scientific Computing
 numpy>=1.24.3
 
-# Production Server (Vercel handles this automatically)
-# gunicorn==21.2.0
+# Development Dependencies (optional for local development)
+# python-dotenv==1.0.0  # Not needed on Vercel (platform handles env vars)
+# gunicorn==21.2.0      # Not needed on Vercel (platform handles WSGI)
 
 # Heavy Dependencies - Commented out for Vercel 250MB limit
 # scipy>=1.10.0  # Large package that may cause size issues
