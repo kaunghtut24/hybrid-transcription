@@ -28,6 +28,14 @@ def health_check():
         required_env_vars = ['SECRET_KEY']
         missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
         
+        # Test critical imports (especially for Vercel deployment issues)
+        try:
+            from app.routes.api.config import config_api
+            checks['services']['api_imports'] = 'up'
+        except Exception as import_error:
+            checks['services']['api_imports'] = f'failed: {str(import_error)}'
+            checks['status'] = 'degraded'
+        
         if missing_vars:
             checks['status'] = 'degraded'
             checks['warnings'] = f"Missing environment variables: {', '.join(missing_vars)}"

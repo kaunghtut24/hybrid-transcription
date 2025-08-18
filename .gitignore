@@ -250,6 +250,7 @@ UNIT_TESTS_IMPLEMENTATION_SUMMARY.md
 .kiro/
 nginx_optimized.conf
 requirements_optimized.txt
+deployment_test.py
 
 # Static file backups and development versions
 static/*backup*
