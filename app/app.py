@@ -48,6 +48,20 @@ def create_app(config_name=None):
     # Register blueprints
     register_blueprints(app)
     
+    # Global error handler: log full stack traces to help diagnose 500s in serverless logs
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        logging.exception("Unhandled exception")
+        from flask import jsonify
+        try:
+            from werkzeug.exceptions import HTTPException
+            if isinstance(e, HTTPException):
+                code = int(e.code or 500)
+                return jsonify(error=e.description, status=code), code
+        except Exception:
+            pass
+        return jsonify(error=str(e)), 500
+
     # Register WebSocket handlers
     register_websocket_handlers(socketio)
     
