@@ -209,7 +209,8 @@ yarn-error.log*
 .env.local
 .env.production
 .env.development
-config.py
+# Only ignore the root-level config.py; allow package modules like app/routes/api/config.py
+/config.py
 secrets.json
 session.json
 

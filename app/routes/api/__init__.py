@@ -3,15 +3,17 @@ API route modules
 """
 
 from flask import Blueprint
-from .session import session_api
-from .config import config_api
-from .assemblyai import assemblyai_api
-from .gemini import gemini_api
-from .prompts import prompts_api
-from .language_detection import language_detection_api
-from .performance import performance_api
-from .forms import forms_api
-from .speaker_diarization import speaker_diarization_api
+
+# Use absolute imports to ensure reliable resolution in serverless runtimes
+from app.routes.api.session import session_api
+from app.routes.api.config import config_api
+from app.routes.api.assemblyai import assemblyai_api
+from app.routes.api.gemini import gemini_api
+from app.routes.api.prompts import prompts_api
+from app.routes.api.language_detection import language_detection_api
+from app.routes.api.performance import performance_api
+from app.routes.api.forms import forms_api
+from app.routes.api.speaker_diarization import speaker_diarization_api
 
 # Create main API blueprint
 api_bp = Blueprint('api', __name__)
