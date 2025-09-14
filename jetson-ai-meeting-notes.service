@@ -1,0 +1,49 @@
+[Unit]
+Description=AI Meeting Transcription Assistant - Jetson Orin Nano
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/ai-meeting-notes
+Environment=PATH=/opt/ai-meeting-notes/venv/bin
+EnvironmentFile=/opt/ai-meeting-notes/.env
+
+# Jetson-optimized Gunicorn configuration
+ExecStart=/opt/ai-meeting-notes/venv/bin/gunicorn \
+    --bind 127.0.0.1:5000 \
+    --workers 2 \
+    --worker-class eventlet \
+    --worker-connections 100 \
+    --timeout 60 \
+    --keep-alive 2 \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
+    --preload \
+    --access-logfile /opt/ai-meeting-notes/logs/access.log \
+    --error-logfile /opt/ai-meeting-notes/logs/error.log \
+    --log-level info \
+    app:app
+
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=3
+
+# Performance and Security Settings for Jetson
+LimitNOFILE=65536
+LimitNPROC=4096
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+ReadWritePaths=/opt/ai-meeting-notes/logs
+ReadWritePaths=/opt/ai-meeting-notes/uploads
+
+# Memory and CPU limits for Jetson Orin Nano
+MemoryMax=2G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target
