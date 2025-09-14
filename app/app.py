@@ -32,33 +32,37 @@ def create_app(config_name=None):
     logger = logging.getLogger(__name__)
     logger.info(f"Starting application with {config_name} configuration")
     
-    # Enable CORS
-    cors_origins = app.config.get('CORS_ORIGINS', ['*'])
-    logger.info(f"CORS_ORIGINS effective: {cors_origins}")
-    CORS(app, origins=cors_origins)
-    
-    # Initialize SocketIO with Vercel-compatible configuration
+    # Enable CORS for development (simple approach like original)
+    CORS(app)
+
+    # Initialize SocketIO (simple approach like original)
+    # Minimal Socket.IO config for Tailscale VPN (prevents packet overflow)
     socketio = SocketIO(
-        app,
-        cors_allowed_origins=cors_origins,
-        logger=False,  # Reduce SocketIO logging noise
+        app, 
+        cors_allowed_origins="*",
+        # Aggressive VPN optimizations
+        ping_timeout=180,           # Very long timeout for VPN
+        ping_interval=60,           # Infrequent pings
+        max_http_buffer_size=500000,  # Smaller buffer to prevent overflow
+        # Force polling transport (more reliable over VPN)
+        transports=['polling'],     # Polling only - more stable over VPN
+        # Minimal logging
         engineio_logger=False,
-        # Vercel serverless compatibility settings
-        ping_timeout=120,  # Much longer timeout for serverless cold starts
-        ping_interval=60,  # Longer interval for serverless
-        async_mode='threading',  # Use threading for better serverless compatibility
-        # Engine.IO specific settings for serverless
-        max_http_buffer_size=10000000,  # 10MB buffer for large requests
+        logger=False
     )
+
+    logger.info("Applied simple CORS configuration for development")
     
     # Register blueprints
     register_blueprints(app)
     
-    # Register test endpoints for debugging
-    if app.config.get('FLASK_ENV') == 'production':
+    # Register test endpoints for debugging (available in both dev and production)
+    try:
         from .socketio_test import register_test_blueprint, register_socketio_test_handlers
         register_test_blueprint(app)
         register_socketio_test_handlers(socketio)
+    except ImportError:
+        logger.warning("SocketIO test endpoints not available")
     
     # Global error handler: log full stack traces to help diagnose 500s in serverless logs
     @app.errorhandler(Exception)
@@ -74,26 +78,31 @@ def create_app(config_name=None):
             pass
         return jsonify(error=str(e)), 500
 
-    # Register WebSocket handlers
-    register_websocket_handlers(socketio)
+    # Register WebSocket handlers (simplified for development)
+    if app.config.get('FLASK_ENV') == 'development':
+        # Simple development handlers
+        @socketio.on('connect')
+        def handle_dev_connect():
+            logger.info("Development: Client connected to SocketIO")
+
+        @socketio.on('disconnect')
+        def handle_dev_disconnect():
+            logger.info("Development: Client disconnected from SocketIO")
+    else:
+        # Full production handlers
+        register_websocket_handlers(socketio)
     
-    # Apply serverless patches for production
+    # Apply serverless patches for production only
     if app.config.get('FLASK_ENV') == 'production':
-        from .serverless_patch import patch_socketio_for_serverless
-        socketio = patch_socketio_for_serverless(app, socketio)
+        try:
+            from .serverless_patch import patch_socketio_for_serverless
+            socketio = patch_socketio_for_serverless(app, socketio)
+        except ImportError:
+            logger.warning("Serverless patches not available")
     
     # Store socketio instance for access in other modules
     app.socketio = socketio  # type: ignore[attr-defined]
-    
-    # Configure client-side transport restrictions for serverless
-    @socketio.on('connect')
-    def handle_connect():
-        """Handle client connection with serverless optimizations"""
-        logger.info("Client connected to SocketIO")
-        
-    @socketio.on('disconnect')
-    def handle_disconnect():
-        """Handle client disconnection"""
-        logger.info("Client disconnected from SocketIO")
+
+    # Simple approach - no complex CORS overrides needed
     
     return app, socketio
