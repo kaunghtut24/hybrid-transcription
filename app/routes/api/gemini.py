@@ -91,7 +91,7 @@ def gemini_generate():
 @gemini_api.route('/summarize', methods=['POST'])
 @require_session
 def gemini_summarize_with_custom_prompt():
-    """Generate meeting summary using custom or default prompt"""
+    """Generate meeting summary using custom or default prompt with chunking for long transcripts"""
     user_id = request.user_id
     config = storage.api_keys_storage.get(user_id, {})
     
@@ -113,54 +113,77 @@ def gemini_summarize_with_custom_prompt():
         return jsonify({'error': 'Transcript is required'}), 400
     
     try:
+        from app.utils.text_chunker import TextChunker
         from services.prompt_manager import CustomPromptManager
+        
         prompt_manager = CustomPromptManager(storage_backend=storage.api_keys_storage)
+        text_chunker = TextChunker(max_chunk_size=8000)  # Adjust size based on model's context window
         
-        # Get the appropriate prompt (custom or default)
-        formatted_prompt = prompt_manager.apply_prompt_template(
-            user_id, 'summarization', transcript=transcript
-        )
+        # Split transcript into chunks if it's too long
+        transcript_chunks = text_chunker.split_transcript(transcript)
+        chunk_summaries = []
         
-        # Prepare Gemini API request
         model = data.get('model', 'gemini-2.0-flash-exp')
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         
-        request_body = {
-            'contents': [{
-                'parts': [{'text': formatted_prompt}]
-            }],
-            'generationConfig': {
-                'temperature': 0.7,
-                'topK': 40,
-                'topP': 0.95,
-                'maxOutputTokens': 2048
+        # Process each chunk
+        for i, chunk in enumerate(transcript_chunks):
+            chunk_prefix = "Segment {i+1}/{len(transcript_chunks)}: " if len(transcript_chunks) > 1 else ""
+            
+            # Get the appropriate prompt for this chunk
+            formatted_prompt = prompt_manager.apply_prompt_template(
+                user_id, 'summarization', 
+                transcript=f"{chunk_prefix}{chunk}"
+            )
+            
+            request_body = {
+                'contents': [{
+                    'parts': [{'text': formatted_prompt}]
+                }],
+                'generationConfig': {
+                    'temperature': 0.7,
+                    'topK': 40,
+                    'topP': 0.95,
+                    'maxOutputTokens': 4096  # Increased for better summaries
+                }
             }
-        }
         
-        response = requests.post(
-            url,
-            params={'key': gemini_key},
-            headers={'Content-Type': 'application/json'},
-            json=request_body,
-            timeout=30
-        )
+            response = requests.post(
+                url,
+                params={'key': gemini_key},
+                headers={'Content-Type': 'application/json'},
+                json=request_body,
+                timeout=45  # Increased timeout for longer texts
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Extract the generated text
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    candidate = result['candidates'][0]
+                    if 'content' in candidate and 'parts' in candidate['content']:
+                        chunk_summary = candidate['content']['parts'][0].get('text', '')
+                        chunk_summaries.append(chunk_summary)
+                else:
+                    logger.error(f"No summary generated for chunk {i+1}")
+                    continue
+            else:
+                logger.error(f"Chunk {i+1} summarization failed: {response.status_code}")
+                continue
         
-        if response.status_code == 200:
-            result = response.json()
+        # If we have any successful summaries, merge them
+        if chunk_summaries:
+            final_summary = text_chunker.merge_summaries(chunk_summaries)
             
-            # Extract the generated text
-            if 'candidates' in result and len(result['candidates']) > 0:
-                candidate = result['candidates'][0]
-                if 'content' in candidate and 'parts' in candidate['content']:
-                    summary = candidate['content']['parts'][0].get('text', '')
-                    
-                    return jsonify({
-                        'summary': summary,
-                        'used_custom_prompt': not prompt_manager.get_user_prompt_status(user_id).get('summarization', {}).get('is_default', True),
-                        'status': 'success'
-                    })
-            
-            return jsonify({'error': 'No summary generated'}), 500
+            return jsonify({
+                'summary': final_summary,
+                'used_custom_prompt': not prompt_manager.get_user_prompt_status(user_id).get('summarization', {}).get('is_default', True),
+                'chunks_processed': len(transcript_chunks),
+                'status': 'success'
+            })
+        
+        return jsonify({'error': 'Failed to generate summary'}), 500
         else:
             logger.error(f"Gemini summarization failed: {response.status_code} {response.text}")
             return jsonify({'error': 'Failed to generate summary'}), response.status_code

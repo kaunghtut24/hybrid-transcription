@@ -73,22 +73,34 @@ class GeminiService {
             ? transcript.map(entry => `${entry.speaker}: ${entry.text}`).join('\n')
             : transcript;
 
-        let systemInstruction = this.customPrompts.summarization;
-        let prompt;
+        try {
+            const response = await fetch('/api/gemini/summarize', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.sessionToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    transcript: transcriptText,
+                    model: this.model
+                })
+            });
 
-        if (systemInstruction) {
-            prompt = systemInstruction.replace('{transcript}', transcriptText);
-            systemInstruction = null;
-        } else {
-            prompt = `Please provide a concise summary of the following meeting transcript. Focus on key points, decisions made, and action items:
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(`Summarization failed: ${error}`);
+            }
 
-${transcriptText}
-
-Summary:`;
-            systemInstruction = "You are an expert meeting summarizer. Provide clear, concise summaries that capture the most important information from meeting transcripts.";
+            const data = await response.json();
+            if (data.summary) {
+                return data.summary;
+            } else {
+                throw new Error('No summary generated');
+            }
+        } catch (error) {
+            console.error('Summarization error:', error);
+            throw error;
         }
-
-        return await this.generateContent(prompt, systemInstruction);
     }
 
     async translateText(text, targetLanguage) {
